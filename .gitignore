@@ -1,0 +1,8 @@
+node_modules/
+.env
+uploads/surat-izin/*
+!uploads/surat-izin/.gitkeep
+uploads/qrcode/*
+!uploads/qrcode/.gitkeep
+*.log
+.DS_Store
