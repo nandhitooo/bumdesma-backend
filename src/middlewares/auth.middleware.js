@@ -1,10 +1,17 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const { failure } = require('../utils/response');
-const { User } = require('../models');
+const { User, AdminAccount } = require('../models');
+const { ROLES } = require('../utils/constants');
 
 /**
- * Memverifikasi JWT pada header Authorization: Bearer <token>
- * dan melampirkan data pengguna (tanpa password) ke req.user
+ * Memverifikasi JWT pada header Authorization: Bearer <token> dan melampirkan
+ * data pengguna (tanpa password) ke req.user.
+ *
+ * Token menyimpan `actorType`: 'karyawan' (akun di tabel users, login pakai
+ * NIP dari app mobile) atau 'admin' (akun di tabel admin_accounts, login
+ * pakai username dari Website - bisa berperan Admin atau Pimpinan).
+ * req.user.role selalu tersedia untuk kebutuhan authorize(): 'karyawan'
+ * untuk karyawan, atau nilai admin_accounts.role ('admin'/'pimpinan').
  */
 async function authenticate(req, res, next) {
   try {
@@ -19,16 +26,29 @@ async function authenticate(req, res, next) {
     }
 
     const decoded = verifyAccessToken(token);
-    const user = await User.findByPk(decoded.id);
 
-    if (!user || user.status !== 'active') {
-      return failure(res, {
-        statusCode: 401,
-        message: 'Akun tidak ditemukan atau sudah dinonaktifkan.',
-      });
+    if (decoded.actorType === 'admin') {
+      const admin = await AdminAccount.findByPk(decoded.id);
+      if (!admin || admin.status !== 'active') {
+        return failure(res, {
+          statusCode: 401,
+          message: 'Akun tidak ditemukan atau sudah dinonaktifkan.',
+        });
+      }
+      req.user = admin.toSafeJSON();
+      req.actorType = admin.role; // 'admin' | 'pimpinan'
+    } else {
+      const user = await User.findByPk(decoded.id);
+      if (!user || user.status !== 'active') {
+        return failure(res, {
+          statusCode: 401,
+          message: 'Akun tidak ditemukan atau sudah dinonaktifkan.',
+        });
+      }
+      req.user = { ...user.toSafeJSON(), role: ROLES.KARYAWAN };
+      req.actorType = ROLES.KARYAWAN;
     }
 
-    req.user = user.toSafeJSON();
     next();
   } catch (err) {
     return failure(res, {

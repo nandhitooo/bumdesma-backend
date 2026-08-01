@@ -4,7 +4,7 @@ const sequelize = require('../config/database');
 class PiketSchedule extends Model {
   static associate(models) {
     PiketSchedule.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
-    PiketSchedule.belongsTo(models.User, { foreignKey: 'assigned_by', as: 'assignedByAdmin' });
+    PiketSchedule.belongsTo(models.AdminAccount, { foreignKey: 'assigned_by', as: 'assignedByAdmin' });
   }
 }
 

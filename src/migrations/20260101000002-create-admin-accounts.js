@@ -2,37 +2,29 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('users', {
+    await queryInterface.createTable('admin_accounts', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
         primaryKey: true,
       },
-      nip: {
-        type: Sequelize.STRING(30),
+      username: {
+        type: Sequelize.STRING(50),
         allowNull: false,
         unique: true,
+        comment: 'Dipakai sebagai identitas login Admin/Pimpinan (bukan NIP karyawan)',
       },
       name: {
         type: Sequelize.STRING(150),
         allowNull: false,
       },
-      email: {
-        type: Sequelize.STRING(150),
-        allowNull: true,
-        comment: 'Diisi karyawan saat wajib ganti password pertama kali, untuk verifikasi lupa password',
-      },
       password: {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      jabatan: {
-        type: Sequelize.STRING(100),
-        allowNull: true,
-      },
-      phone: {
-        type: Sequelize.STRING(20),
-        allowNull: true,
+      role: {
+        type: Sequelize.ENUM('admin', 'pimpinan'),
+        allowNull: false,
       },
       status: {
         type: Sequelize.ENUM('active', 'inactive'),
@@ -42,7 +34,7 @@ module.exports = {
       is_first_login: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
-        defaultValue: true,
+        defaultValue: false,
       },
       last_login_at: {
         type: Sequelize.DATE,
@@ -63,11 +55,13 @@ module.exports = {
         allowNull: true,
       },
     });
-    await queryInterface.addIndex('users', ['status']);
+    await queryInterface.addIndex('admin_accounts', ['role']);
+    await queryInterface.addIndex('admin_accounts', ['status']);
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('users');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_users_status";');
+    await queryInterface.dropTable('admin_accounts');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_accounts_role";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_accounts_status";');
   },
 };

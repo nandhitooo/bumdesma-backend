@@ -14,6 +14,15 @@ module.exports = {
         references: { model: 'users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
+        comment: 'Terisi jika aksi dilakukan oleh karyawan (tabel users)',
+      },
+      admin_account_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        references: { model: 'admin_accounts', key: 'id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+        comment: 'Terisi jika aksi dilakukan oleh Admin/Pimpinan (tabel admin_accounts)',
       },
       action: { type: Sequelize.STRING(100), allowNull: false },
       description: { type: Sequelize.TEXT, allowNull: true },
@@ -26,6 +35,7 @@ module.exports = {
       },
     });
     await queryInterface.addIndex('activity_logs', ['user_id']);
+    await queryInterface.addIndex('activity_logs', ['admin_account_id']);
     await queryInterface.addIndex('activity_logs', ['action']);
   },
 

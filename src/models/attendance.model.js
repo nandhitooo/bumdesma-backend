@@ -7,7 +7,7 @@ class Attendance extends Model {
     Attendance.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
     Attendance.belongsTo(models.QrCode, { foreignKey: 'qr_code_id', as: 'qrCode' });
     Attendance.belongsTo(models.WorkSchedule, { foreignKey: 'schedule_id', as: 'schedule' });
-    Attendance.belongsTo(models.User, { foreignKey: 'corrected_by', as: 'correctedByAdmin' });
+    Attendance.belongsTo(models.AdminAccount, { foreignKey: 'corrected_by', as: 'correctedByAdmin' });
   }
 }
 

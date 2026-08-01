@@ -5,8 +5,8 @@ const { LEAVE_TYPE, LEAVE_STATUS } = require('../utils/constants');
 class Leave extends Model {
   static associate(models) {
     Leave.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
-    Leave.belongsTo(models.User, { foreignKey: 'reviewed_by', as: 'reviewedByAdmin' });
-    Leave.belongsTo(models.User, { foreignKey: 'decided_by', as: 'decidedByPimpinan' });
+    Leave.belongsTo(models.AdminAccount, { foreignKey: 'reviewed_by', as: 'reviewedByAdmin' });
+    Leave.belongsTo(models.AdminAccount, { foreignKey: 'decided_by', as: 'decidedByPimpinan' });
   }
 }
 

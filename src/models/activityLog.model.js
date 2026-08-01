@@ -4,6 +4,7 @@ const sequelize = require('../config/database');
 class ActivityLog extends Model {
   static associate(models) {
     ActivityLog.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
+    ActivityLog.belongsTo(models.AdminAccount, { foreignKey: 'admin_id', as: 'admin' });
   }
 }
 
@@ -17,7 +18,16 @@ ActivityLog.init(
     user_id: {
       type: DataTypes.UUID,
       allowNull: true,
-      comment: 'Null jika aksi dilakukan sistem tanpa sesi pengguna',
+      comment: 'Diisi jika aktor adalah karyawan',
+    },
+    admin_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Diisi jika aktor adalah Admin/Pimpinan',
+    },
+    actor_type: {
+      type: DataTypes.ENUM('karyawan', 'admin', 'pimpinan'),
+      allowNull: true,
     },
     action: {
       type: DataTypes.STRING(100),

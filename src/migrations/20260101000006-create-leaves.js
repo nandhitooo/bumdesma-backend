@@ -31,7 +31,7 @@ module.exports = {
       reviewed_by: {
         type: Sequelize.UUID,
         allowNull: true,
-        references: { model: 'users', key: 'id' },
+        references: { model: 'admin_accounts', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },
@@ -39,7 +39,7 @@ module.exports = {
       decided_by: {
         type: Sequelize.UUID,
         allowNull: true,
-        references: { model: 'users', key: 'id' },
+        references: { model: 'admin_accounts', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },

@@ -2,6 +2,8 @@ const { Op } = require('sequelize');
 const { PiketSchedule, User } = require('../models');
 const { success, failure } = require('../utils/response');
 const { logActivity } = require('../utils/activityLogger');
+const { notifyUser } = require('../utils/notifier');
+const { NOTIFICATION_TYPE } = require('../utils/constants');
 
 // GET /api/piket?start=&end=
 const getAll = async (req, res) => {
@@ -11,7 +13,7 @@ const getAll = async (req, res) => {
 
   const rows = await PiketSchedule.findAll({
     where,
-    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name', 'departemen'] }],
+    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name'] }],
     order: [['tanggal', 'ASC']],
   });
 
@@ -48,7 +50,7 @@ const assign = async (req, res) => {
   for (const userId of userIds) {
     const [row] = await PiketSchedule.findOrCreate({
       where: { user_id: userId, tanggal },
-      defaults: { assigned_by: req.user.id, notification_sent: true },
+      defaults: { assigned_by: req.user.id },
     });
     created.push(row);
   }
@@ -59,12 +61,55 @@ const assign = async (req, res) => {
     `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${userIds.length} karyawan`
   );
 
-  // NB: notification_sent ditandai true karena notifikasi ke perangkat karyawan
-  // dikirim melalui layanan push notification pihak ketiga (di luar cakupan API ini).
   return success(res, {
     statusCode: 201,
-    message: 'Jadwal piket berhasil ditetapkan dan notifikasi terkirim ke karyawan terkait.',
+    message:
+      'Jadwal piket berhasil ditetapkan. Tekan "Kirim Notifikasi" untuk memberi tahu karyawan di app mobile.',
     data: created,
+  });
+};
+
+// POST /api/piket/:id/notify  (Admin - tombol "Kirim Notifikasi")
+// Membuat notifikasi in-app untuk karyawan bersangkutan dan menandai
+// notification_sent = true. Ini yang membuat badge lonceng di Dashboard
+// mobile menyala dan mengisi panel notifikasi (Gambar 3.24).
+const notify = async (req, res) => {
+  const row = await PiketSchedule.findByPk(req.params.id, {
+    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name'] }],
+  });
+
+  if (!row) {
+    return failure(res, { statusCode: 404, message: 'Jadwal piket tidak ditemukan.' });
+  }
+
+  const tanggalFormatted = new Date(`${row.tanggal}T00:00:00`).toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  await notifyUser({
+    userId: row.user_id,
+    type: NOTIFICATION_TYPE.PIKET,
+    title: 'Jadwal Piket Sabtu',
+    message: `Anda ditugaskan piket pada ${tanggalFormatted}. Mohon hadir sesuai jadwal.`,
+    data: { piketScheduleId: row.id, tanggal: row.tanggal },
+    sentBy: req.user.id,
+  });
+
+  row.notification_sent = true;
+  await row.save();
+
+  await logActivity(
+    req,
+    'NOTIFY_PIKET',
+    `Admin mengirim notifikasi piket kepada ${row.user?.name ?? row.user_id}`
+  );
+
+  return success(res, {
+    message: `Notifikasi piket berhasil dikirim ke ${row.user?.name ?? 'karyawan'}.`,
+    data: row,
   });
 };
 
@@ -79,4 +124,4 @@ const remove = async (req, res) => {
   return success(res, { message: 'Jadwal piket berhasil dihapus.' });
 };
 
-module.exports = { getAll, myPiket, assign, remove };
+module.exports = { getAll, myPiket, assign, notify, remove };

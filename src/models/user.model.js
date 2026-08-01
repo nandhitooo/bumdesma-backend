@@ -1,15 +1,17 @@
 const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
-const { ROLES, USER_STATUS } = require('../utils/constants');
+const { USER_STATUS } = require('../utils/constants');
 
+/// Akun Karyawan. Login pakai NIP + password sementara dari Admin, wajib
+/// ganti password saat pertama kali login (Flow Karyawan). Akun Admin &
+/// Pimpinan ada di model terpisah, lihat `admin_account.model.js`.
 class User extends Model {
   static associate(models) {
     User.hasMany(models.Attendance, { foreignKey: 'user_id', as: 'attendances' });
     User.hasMany(models.Leave, { foreignKey: 'user_id', as: 'leaves' });
     User.hasMany(models.PiketSchedule, { foreignKey: 'user_id', as: 'piketSchedules' });
     User.hasMany(models.ActivityLog, { foreignKey: 'user_id', as: 'activityLogs' });
-    User.hasMany(models.Leave, { foreignKey: 'reviewed_by', as: 'leavesReviewed' });
-    User.hasMany(models.Leave, { foreignKey: 'decided_by', as: 'leavesDecided' });
+    User.hasMany(models.Notification, { foreignKey: 'user_id', as: 'notifications' });
   }
 
   toSafeJSON() {
@@ -29,26 +31,22 @@ User.init(
       type: DataTypes.STRING(30),
       allowNull: false,
       unique: true,
-      comment: 'Nomor Induk Pegawai, dipakai sebagai username login',
+      comment: 'Nomor Induk Pegawai, dipakai sebagai username login di app mobile',
     },
     name: {
       type: DataTypes.STRING(150),
       allowNull: false,
     },
+    email: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      comment: 'Diisi karyawan saat wajib ganti password pertama kali, untuk verifikasi lupa password',
+    },
     password: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    role: {
-      type: DataTypes.ENUM(...Object.values(ROLES)),
-      allowNull: false,
-      defaultValue: ROLES.KARYAWAN,
-    },
     jabatan: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
-    },
-    departemen: {
       type: DataTypes.STRING(100),
       allowNull: true,
     },

@@ -66,7 +66,7 @@ const getAll = async (req, res) => {
   const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await Leave.findAndCountAll({
     where,
-    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name', 'departemen'] }],
+    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name'] }],
     order: [['created_at', 'DESC']],
     limit: Number(limit),
     offset,

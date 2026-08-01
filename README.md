@@ -2,8 +2,8 @@
 ### BUMDESMA Podo Rukun LKD
 
 REST API untuk sistem absensi karyawan berbasis QR Code statis dengan validasi
-geofencing, dibangun sesuai rancangan pada dokumen Bab III (Analisis dan
-Perancangan Sistem).
+geofencing. Melayani dua klien: **Website Admin/Pimpinan** (React) dan
+**Aplikasi Mobile Karyawan** (Flutter), masing-masing lewat HTTP/JSON.
 
 ## Stack Teknologi
 
@@ -16,6 +16,25 @@ Perancangan Sistem).
 | QR Code | Library `qrcode` (generate PNG statis) |
 | Export laporan | `pdfkit` (PDF) & `exceljs` (Spreadsheet) |
 | Upload file | `multer` (lampiran surat izin/cuti) |
+
+## Dua Jenis Akun, Dua Tabel Terpisah
+
+Sistem ini **tidak** memakai satu tabel `users` dengan kolom `role` untuk
+ketiga aktor. Sebagai gantinya:
+
+- **`users`** — Karyawan saja. Login pakai **NIP + password** dari app
+  mobile. Password awal adalah password sementara yang diinput Admin;
+  karyawan **wajib ganti password** saat pertama kali login, dan bisa
+  sekalian mengisi email (opsional) untuk verifikasi jika suatu saat lupa
+  password.
+- **`admin_accounts`** — Admin & Pimpinan. Login pakai **username +
+  password** dari Website. Dibedakan lewat kolom `role` (`admin` /
+  `pimpinan`).
+
+Konsekuensinya, kolom-kolom yang mencatat *siapa melakukan suatu aksi admin*
+(`piket_schedules.assigned_by`, `leaves.reviewed_by`/`decided_by`,
+`notifications.sent_by`, `attendances.corrected_by`) menunjuk ke
+`admin_accounts.id`, bukan `users.id`.
 
 ## Arsitektur
 
@@ -31,31 +50,35 @@ bumdesma-backend/
 ├── src/
 │   ├── app.js                 # Konfigurasi Express
 │   ├── config/                 # Koneksi DB & config Sequelize CLI
-│   ├── models/                 # 8 model Sequelize + asosiasi (ERD)
+│   ├── models/                 # Model Sequelize + asosiasi (ERD)
 │   ├── migrations/              # Skema database (urut sesuai FK)
 │   ├── seeders/                 # Data awal (akun, jadwal kerja, setting)
 │   ├── controllers/             # Logika bisnis per modul
 │   ├── routes/                  # Definisi endpoint per modul
 │   ├── middlewares/             # Auth, error handler, upload, validasi
-│   └── utils/                   # JWT, geofencing, response, dsb
+│   └── utils/                   # JWT, geofencing, notifier, response, dsb
 └── uploads/
     ├── qrcode/                  # Gambar QR Code hasil generate
     └── surat-izin/               # Lampiran surat izin/cuti karyawan
 ```
 
-## Skema Database (sesuai ERD Bab III)
+## Skema Database
 
-- **users** — data Admin, Karyawan, Pimpinan (role: admin/karyawan/pimpinan)
+- **users** — data Karyawan (NIP, nama, password, jabatan, phone, email,
+  status, `is_first_login`)
+- **admin_accounts** — data Admin & Pimpinan (username, nama, password,
+  role, status)
 - **work_schedules** — jadwal kerja reguler (Senin–Jumat) & piket (Sabtu)
 - **qr_codes** — token QR Code statis (hanya satu token aktif pada satu waktu)
 - **attendances** — riwayat presensi harian (1 baris per karyawan per tanggal)
 - **leaves** — pengajuan izin/cuti (alur: pending → diteruskan Admin → approved/rejected Pimpinan)
-- **piket_schedules** — penugasan piket Sabtu per karyawan
+- **piket_schedules** — penugasan piket Sabtu per karyawan, `notification_sent`
+  jadi `true` hanya setelah Admin menekan tombol "Kirim Notifikasi"
+- **notifications** — notifikasi in-app untuk karyawan (jadwal piket,
+  keputusan izin/cuti), ditampilkan di lonceng Dashboard app mobile
 - **system_settings** — parameter sistem (koordinat kantor, radius geofencing, hari libur)
-- **activity_logs** — audit trail seluruh aktivitas penting
-
-Relasi foreign key mengikuti ERD: `Users 1—N Attendance/Leave/PiketSchedule/ActivityLog`,
-`QrCode 1—N Attendance`, `WorkSchedule 1—N Attendance`.
+- **activity_logs** — audit trail seluruh aktivitas penting, mencatat aktor
+  karyawan (`user_id`) maupun admin/pimpinan (`admin_id` + `actor_type`)
 
 ## Instalasi & Menjalankan
 
@@ -77,6 +100,10 @@ npm run db:migrate
 npm run db:seed
 ```
 
+> Migration bersifat idempotent untuk tabel yang mungkin sudah ada secara
+> manual di database kamu (`admin_accounts`, kolom `email`) — aman
+> dijalankan ulang tanpa menimpa data yang sudah ada.
+
 ### 4. Jalankan server
 ```bash
 npm run dev     # dengan nodemon (development)
@@ -85,31 +112,36 @@ npm start        # production
 
 Server berjalan di `http://localhost:5000`, base URL API: `http://localhost:5000/api`.
 
+Kalau backend diakses dari HP fisik (app mobile lewat USB) atau dari
+perangkat lain di jaringan yang sama, pastikan `app.listen` mendengarkan di
+`0.0.0.0`, bukan cuma `127.0.0.1`.
+
 ### Akun default (dari seeder)
 
-| Role | NIP | Password |
-|---|---|---|
-| Admin | `ADM001` | `Admin@12345` |
-| Pimpinan | `PIM001` | `Pimpinan@12345` |
-| Karyawan (contoh) | `KAR001` | `Karyawan@123` (wajib ganti password saat login pertama) |
+| Peran | Login pakai | Username/NIP | Password |
+|---|---|---|---|
+| Admin | Website (username) | `admin` | `Admin@12345` |
+| Pimpinan | Website (username) | `pimpinan` | `Pimpinan@12345` |
+| Karyawan (contoh) | App mobile (NIP) | `KAR001` | `Karyawan@123` (wajib ganti password saat login pertama) |
 
 ## Ringkasan Endpoint API
 
 Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <accessToken>`.
 
 ### Auth
-| Method | Endpoint | Akses |
-|---|---|---|
-| POST | `/api/auth/login` | Publik |
-| POST | `/api/auth/refresh-token` | Publik |
-| POST | `/api/auth/change-password` | Semua role |
-| GET | `/api/auth/me` | Semua role |
-| POST | `/api/auth/logout` | Semua role |
+| Method | Endpoint | Akses | Keterangan |
+|---|---|---|---|
+| POST | `/api/auth/login` | Publik | Karyawan, body `{ nip, password }` |
+| POST | `/api/auth/admin-login` | Publik | Admin/Pimpinan, body `{ username, password }` |
+| POST | `/api/auth/refresh-token` | Publik | |
+| POST | `/api/auth/change-password` | Semua akun | body `{ oldPassword, newPassword, email? }` — `email` hanya dipakai untuk akun karyawan |
+| GET | `/api/auth/me` | Semua akun | |
+| POST | `/api/auth/logout` | Semua akun | |
 
 ### Pegawai/Karyawan (`/api/users`) — Admin
 | Method | Endpoint |
 |---|---|
-| GET | `/` (query: role, status, search, page, limit) |
+| GET | `/` (query: status, search, page, limit) |
 | GET | `/:id` |
 | POST | `/` |
 | PUT | `/:id` |
@@ -141,7 +173,15 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 | GET | `/` | Admin, Pimpinan |
 | GET | `/me` | Karyawan |
 | POST | `/` (body: tanggal, userIds[]) | Admin |
+| POST | `/:id/notify` | Admin — kirim notifikasi in-app ke karyawan bersangkutan |
 | DELETE | `/:id` | Admin |
+
+### Notifikasi (`/api/notifications`) — karyawan (notifikasi milik sendiri)
+| Method | Endpoint |
+|---|---|
+| GET | `/` |
+| GET | `/unread-count` |
+| POST | `/read-all` |
 
 ### Laporan (`/api/reports`) — Admin, Pimpinan
 | Method | Endpoint |
@@ -165,8 +205,7 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 
 ## Logika Bisnis Utama
 
-**Scan QR (`POST /api/attendance/scan`)** — menjalankan 4 lapis validasi sesuai
-Bab III:
+**Scan QR (`POST /api/attendance/scan`)** — menjalankan 4 lapis validasi:
 1. **Layer 1 – Autentikasi**: token JWT karyawan (middleware `authenticate`).
 2. **Layer 2 – Token QR**: memverifikasi token cocok dengan QR Code statis aktif.
 3. **Layer 3 – Geofencing**: Haversine formula, ditolak jika jarak > radius (default 50m).
@@ -181,16 +220,29 @@ Admin) → `approved`/`rejected` (keputusan Pimpinan). Saat disetujui, sistem
 otomatis mengisi rekap harian berstatus **Izin/Cuti** pada rentang tanggal
 terkait sehingga akses scan ditutup untuk tanggal tersebut.
 
+**Notifikasi Piket**: Admin assign piket lewat `POST /api/piket` (belum
+mengirim notifikasi apapun) → Admin menekan tombol konfirmasi "Kirim
+Notifikasi" di Website, yang memanggil `POST /api/piket/:id/notify` → baris
+baru dibuat di `notifications` dan `piket_schedules.notification_sent`
+menjadi `true` → app mobile karyawan menampilkan badge merah di lonceng
+Dashboard saat polling `GET /api/notifications/unread-count`.
+
 **QR Code statis**: hanya satu token aktif pada satu waktu; generate/regenerasi
 otomatis menonaktifkan token sebelumnya dan menghasilkan gambar PNG baru.
 
 ## Catatan
 
-- Password disimpan ter-hash dengan bcrypt (10 rounds).
-- Soft delete pada tabel `users` (kolom `deleted_at`) agar riwayat presensi
-  karyawan yang keluar tetap terjaga.
-- `activity_logs` mencatat setiap aksi penting untuk kebutuhan audit trail.
-- Endpoint push-notification (piket & keputusan izin) dicatat di log namun
-  pengiriman aktual ke perangkat karyawan memerlukan integrasi layanan pihak
-  ketiga (di luar cakupan API ini) — cukup ganti implementasi pada
-  `piket.controller.js` / `leave.controller.js` sesuai provider yang dipilih.
+- Password disimpan ter-hash dengan bcrypt (10 rounds), baik di `users`
+  maupun `admin_accounts`.
+- Soft delete pada tabel `users` dan `admin_accounts` (kolom `deleted_at`)
+  agar riwayat presensi/aktivitas tetap terjaga walau akunnya dihapus.
+- `activity_logs` mencatat setiap aksi penting untuk kebutuhan audit trail,
+  baik dari karyawan maupun admin/pimpinan.
+- Notifikasi saat ini bersifat **in-app** (disimpan di tabel `notifications`,
+  diambil app lewat polling `GET /api/notifications*`) — bukan push
+  notification native (FCM/APNs). Kalau butuh push notification asli saat
+  app di-background, itu memerlukan integrasi layanan tambahan di luar
+  cakupan API ini.
+- Belum ada endpoint untuk mengelola (`create`/`update`) akun
+  `admin_accounts` lewat API — saat ini akun Admin/Pimpinan baru masih
+  ditambahkan manual lewat database.

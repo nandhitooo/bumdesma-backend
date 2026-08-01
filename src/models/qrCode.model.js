@@ -4,7 +4,7 @@ const sequelize = require('../config/database');
 class QrCode extends Model {
   static associate(models) {
     QrCode.hasMany(models.Attendance, { foreignKey: 'qr_code_id', as: 'attendances' });
-    QrCode.belongsTo(models.User, { foreignKey: 'generated_by', as: 'generator' });
+    QrCode.belongsTo(models.AdminAccount, { foreignKey: 'generated_by', as: 'generator' });
   }
 }
 

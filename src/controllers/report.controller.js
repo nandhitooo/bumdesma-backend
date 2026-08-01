@@ -18,12 +18,9 @@ function formatTime(date) {
   return new Date(date).toTimeString().slice(0, 8);
 }
 
-async function fetchRecap({ start, end, user_id, departemen }) {
+async function fetchRecap({ start, end, user_id }) {
   const where = {};
   if (start && end) where.tanggal = { [Op.between]: [start, end] };
-
-  const userWhere = {};
-  if (departemen) userWhere.departemen = departemen;
   if (user_id) where.user_id = user_id;
 
   return Attendance.findAll({
@@ -32,8 +29,7 @@ async function fetchRecap({ start, end, user_id, departemen }) {
       {
         model: User,
         as: 'user',
-        attributes: ['nip', 'name', 'jabatan', 'departemen'],
-        where: Object.keys(userWhere).length ? userWhere : undefined,
+        attributes: ['nip', 'name', 'jabatan'],
       },
     ],
     order: [
@@ -46,12 +42,12 @@ async function fetchRecap({ start, end, user_id, departemen }) {
 // GET /api/reports/summary?start=&end=
 // Rekapitulasi ringkas (dipakai halaman Laporan sebelum export)
 const summary = async (req, res) => {
-  const { start, end, user_id, departemen } = req.query;
+  const { start, end, user_id } = req.query;
   if (!start || !end) {
     return failure(res, { statusCode: 422, message: 'Parameter start dan end (YYYY-MM-DD) wajib diisi.' });
   }
 
-  const rows = await fetchRecap({ start, end, user_id, departemen });
+  const rows = await fetchRecap({ start, end, user_id });
 
   const recap = {
     totalRecords: rows.length,
@@ -68,13 +64,13 @@ const summary = async (req, res) => {
 
 // GET /api/reports/attendance/export?start=&end=&format=pdf|xlsx
 const exportAttendance = async (req, res) => {
-  const { start, end, user_id, departemen, format = 'pdf' } = req.query;
+  const { start, end, user_id, format = 'pdf' } = req.query;
 
   if (!start || !end) {
     return failure(res, { statusCode: 422, message: 'Parameter start dan end (YYYY-MM-DD) wajib diisi.' });
   }
 
-  const rows = await fetchRecap({ start, end, user_id, departemen });
+  const rows = await fetchRecap({ start, end, user_id });
 
   await logActivity(
     req,
@@ -98,7 +94,6 @@ async function exportExcel(res, rows, start, end) {
     { header: 'NIP', key: 'nip', width: 14 },
     { header: 'Nama', key: 'nama', width: 25 },
     { header: 'Jabatan', key: 'jabatan', width: 18 },
-    { header: 'Departemen', key: 'departemen', width: 18 },
     { header: 'Jam Masuk', key: 'jamMasuk', width: 12 },
     { header: 'Jam Pulang', key: 'jamPulang', width: 12 },
     { header: 'Status', key: 'status', width: 14 },
@@ -113,7 +108,6 @@ async function exportExcel(res, rows, start, end) {
       nip: r.user?.nip,
       nama: r.user?.name,
       jabatan: r.user?.jabatan,
-      departemen: r.user?.departemen,
       jamMasuk: formatTime(r.jam_masuk),
       jamPulang: formatTime(r.jam_pulang),
       status: STATUS_LABEL[r.status] || r.status,

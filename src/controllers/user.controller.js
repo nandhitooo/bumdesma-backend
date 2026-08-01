@@ -3,13 +3,14 @@ const { Op } = require('sequelize');
 const { User } = require('../models');
 const { success, failure } = require('../utils/response');
 const { logActivity } = require('../utils/activityLogger');
-const { ROLES, USER_STATUS } = require('../utils/constants');
+const { USER_STATUS } = require('../utils/constants');
 
-// GET /api/users?role=&status=&search=&page=&limit=
+// GET /api/users?status=&search=&page=&limit=
+// Selalu daftar karyawan (tabel users) - akun Admin/Pimpinan ada di
+// admin_accounts, tidak dikelola lewat endpoint ini.
 const getAll = async (req, res) => {
-  const { role, status, search, page = 1, limit = 20 } = req.query;
+  const { status, search, page = 1, limit = 20 } = req.query;
   const where = {};
-  if (role) where.role = role;
   if (status) where.status = status;
   if (search) {
     where[Op.or] = [
@@ -42,7 +43,7 @@ const getById = async (req, res) => {
 
 // POST /api/users  (Admin menambah karyawan baru + password sementara)
 const create = async (req, res) => {
-  const { nip, name, role, jabatan, departemen, phone, temporaryPassword } = req.body;
+  const { nip, name, jabatan, phone, temporaryPassword } = req.body;
 
   if (!nip || !name || !temporaryPassword) {
     return failure(res, {
@@ -61,9 +62,7 @@ const create = async (req, res) => {
     nip,
     name,
     password: hashed,
-    role: role && Object.values(ROLES).includes(role) ? role : ROLES.KARYAWAN,
     jabatan,
-    departemen,
     phone,
     is_first_login: true,
   });
@@ -82,12 +81,10 @@ const update = async (req, res) => {
   const user = await User.findByPk(req.params.id);
   if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
 
-  const { name, jabatan, departemen, phone, role } = req.body;
+  const { name, jabatan, phone } = req.body;
   if (name !== undefined) user.name = name;
   if (jabatan !== undefined) user.jabatan = jabatan;
-  if (departemen !== undefined) user.departemen = departemen;
   if (phone !== undefined) user.phone = phone;
-  if (role !== undefined && Object.values(ROLES).includes(role)) user.role = role;
 
   await user.save();
   await logActivity(req, 'UPDATE_USER', `Admin memperbarui data karyawan: ${user.name}`);

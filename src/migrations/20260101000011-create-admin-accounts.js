@@ -1,15 +1,22 @@
 'use strict';
 
+// Tabel `admin_accounts` sudah ada secara fisik di database (dibuat di luar
+// migration ini). Migration ini idempotent: kalau tabel sudah ada, dilewati
+// saja supaya struktur asli tidak tersentuh; kalau belum ada (mis. instalasi
+// baru), tabel dibuat mengikuti struktur yang sama persis.
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('users', {
+    const tables = await queryInterface.showAllTables();
+    if (tables.includes('admin_accounts')) return;
+
+    await queryInterface.createTable('admin_accounts', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
         primaryKey: true,
       },
-      nip: {
-        type: Sequelize.STRING(30),
+      username: {
+        type: Sequelize.STRING(50),
         allowNull: false,
         unique: true,
       },
@@ -17,22 +24,13 @@ module.exports = {
         type: Sequelize.STRING(150),
         allowNull: false,
       },
-      email: {
-        type: Sequelize.STRING(150),
-        allowNull: true,
-        comment: 'Diisi karyawan saat wajib ganti password pertama kali, untuk verifikasi lupa password',
-      },
       password: {
-        type: Sequelize.STRING,
+        type: Sequelize.STRING(255),
         allowNull: false,
       },
-      jabatan: {
-        type: Sequelize.STRING(100),
-        allowNull: true,
-      },
-      phone: {
-        type: Sequelize.STRING(20),
-        allowNull: true,
+      role: {
+        type: Sequelize.ENUM('admin', 'pimpinan'),
+        allowNull: false,
       },
       status: {
         type: Sequelize.ENUM('active', 'inactive'),
@@ -42,7 +40,7 @@ module.exports = {
       is_first_login: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
-        defaultValue: true,
+        defaultValue: false,
       },
       last_login_at: {
         type: Sequelize.DATE,
@@ -63,11 +61,12 @@ module.exports = {
         allowNull: true,
       },
     });
-    await queryInterface.addIndex('users', ['status']);
+    await queryInterface.addIndex('admin_accounts', ['role']);
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable('users');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_users_status";');
+    await queryInterface.dropTable('admin_accounts');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_accounts_role";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_accounts_status";');
   },
 };

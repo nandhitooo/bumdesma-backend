@@ -261,7 +261,7 @@ const getAll = async (req, res) => {
   const { rows, count } = await Attendance.findAndCountAll({
     where,
     include: [
-      { model: User, as: 'user', attributes: ['id', 'nip', 'name', 'jabatan', 'departemen'] },
+      { model: User, as: 'user', attributes: ['id', 'nip', 'name', 'jabatan'] },
       { model: WorkSchedule, as: 'schedule', attributes: ['label'] },
     ],
     order: [
