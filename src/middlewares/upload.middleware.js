@@ -6,7 +6,19 @@ const { v4: uuidv4 } = require('uuid');
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads', 'surat-izin');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+// NB: mobile's file_picker (leave_form_screen.dart) offers .pdf and .docx,
+// and the README explicitly documents ".pdf/.docx" as supported lampiran.
+// The mime list below was missing both docx and the legacy .doc type, which
+// caused every Word-document upload to be rejected by fileFilter below
+// (silently failing the whole "Ajukan Izin/Cuti" submission on mobile).
+const ALLOWED_MIME = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/jpg',
+  'application/msword', // .doc (legacy)
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const storage = multer.diskStorage({
@@ -19,7 +31,7 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   if (!ALLOWED_MIME.includes(file.mimetype)) {
-    return cb(new Error('Format file tidak didukung. Gunakan PDF, JPG, atau PNG.'));
+    return cb(new Error('Format file tidak didukung. Gunakan PDF, DOCX, JPG, atau PNG.'));
   }
   cb(null, true);
 };
