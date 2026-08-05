@@ -5,6 +5,8 @@ const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../ut
 const { logActivity } = require('../utils/activityLogger');
 const { ROLES } = require('../utils/constants');
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // POST /api/auth/login
 // Login Karyawan lewat app mobile, pakai NIP + password sementara yang
 // diinput Admin di Website. Wajib ganti password saat pertama kali login.
@@ -51,6 +53,11 @@ const login = async (req, res) => {
       accessToken,
       refreshToken,
       mustChangePassword: user.is_first_login,
+      // Email pemulihan wajib dimiliki setiap akun karyawan. Kalau belum
+      // ada (mis. akun lama dari sebelum fitur ini ada, atau is_first_login
+      // sudah false tapi entah kenapa email tetap kosong), mobile app akan
+      // mengarahkan ke layar "Lengkapi Email" yang tidak bisa dilewati.
+      mustAddEmail: !user.email,
     },
   });
 };
@@ -170,11 +177,21 @@ const changePassword = async (req, res) => {
     return failure(res, { statusCode: 401, message: 'Password lama tidak sesuai.' });
   }
 
-  if (isKaryawan && email !== undefined) {
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Email pemulihan WAJIB dimiliki setiap akun karyawan. Kalau request ini
+  // menyertakan email baru, pakai itu; kalau tidak, akun harus sudah
+  // punya email tercatat sebelumnya — kalau dua-duanya kosong, tolak.
+  if (isKaryawan) {
+    const nextEmail = email !== undefined && email !== null && email !== '' ? email : account.email;
+    if (!nextEmail) {
+      return failure(res, {
+        statusCode: 422,
+        message: 'Email wajib diisi untuk keperluan pemulihan password.',
+      });
+    }
+    if (!EMAIL_REGEX.test(nextEmail)) {
       return failure(res, { statusCode: 422, message: 'Format email tidak valid.' });
     }
-    account.email = email || null;
+    account.email = nextEmail;
   }
 
   account.password = await bcrypt.hash(newPassword, 10);
@@ -183,7 +200,39 @@ const changePassword = async (req, res) => {
 
   await logActivity(req, 'CHANGE_PASSWORD', 'Pengguna mengganti password sendiri');
 
-  return success(res, { message: 'Password berhasil diperbarui.' });
+  return success(res, {
+    message: 'Password berhasil diperbarui.',
+    data: { email: isKaryawan ? account.email : undefined },
+  });
+};
+
+// POST /api/auth/email
+// Melengkapi/memperbarui email pemulihan TANPA mengganti password.
+// Dipakai untuk karyawan yang is_first_login-nya sudah false (jadi tidak
+// lagi melewati layar ganti password) tapi akunnya masih belum punya email
+// tercatat — misalnya akun lama dari sebelum fitur ini ditambahkan.
+const updateEmail = async (req, res) => {
+  if (req.actorType !== ROLES.KARYAWAN) {
+    return failure(res, {
+      statusCode: 403,
+      message: 'Hanya akun karyawan yang memerlukan email pemulihan.',
+    });
+  }
+
+  const { email } = req.body;
+  if (!email || !EMAIL_REGEX.test(email)) {
+    return failure(res, { statusCode: 422, message: 'Format email tidak valid.' });
+  }
+
+  const user = await User.findByPk(req.user.id);
+  if (!user) return failure(res, { statusCode: 404, message: 'Akun tidak ditemukan.' });
+
+  user.email = email;
+  await user.save();
+
+  await logActivity(req, 'UPDATE_EMAIL', 'Karyawan memperbarui email pemulihan password');
+
+  return success(res, { message: 'Email berhasil disimpan.', data: { email: user.email } });
 };
 
 // GET /api/auth/me
@@ -206,4 +255,4 @@ const logout = async (req, res) => {
   return success(res, { message: 'Logout berhasil.' });
 };
 
-module.exports = { login, adminLogin, refreshToken, changePassword, me, logout };
+module.exports = { login, adminLogin, refreshToken, changePassword, updateEmail, me, logout };
