@@ -27,24 +27,6 @@ const create = async (req, res) => {
     });
   }
 
-  const periode = `${leave.tanggal_mulai} s/d ${leave.tanggal_selesai}`;
-  await notifyUser({
-    userId: leave.user_id,
-    type: NOTIFICATION_TYPE.IZIN_CUTI,
-    title:
-      decision === LEAVE_STATUS.APPROVED
-        ? "Pengajuan Disetujui"
-        : "Pengajuan Ditolak",
-    message:
-      decision === LEAVE_STATUS.APPROVED
-        ? `Pengajuan ${leave.jenis} Anda (${periode}) telah disetujui.`
-        : `Pengajuan ${leave.jenis} Anda (${periode}) telah ditolak.${
-            catatan_keputusan ? ` Catatan: ${catatan_keputusan}` : ""
-          }`,
-    data: { leaveId: leave.id, status: decision },
-    sentBy: req.user.id,
-  });
-
   const leave = await Leave.create({
     user_id: req.user.id,
     jenis,
@@ -156,6 +138,10 @@ const decide = async (req, res) => {
     });
   }
 
+  // 'leave' is declared here, before anything below references it — this
+  // fixes the "Cannot access 'leave' before initialization" crash that
+  // happened when the notifyUser() call was previously inserted above
+  // this declaration.
   const leave = await Leave.findByPk(req.params.id);
   if (!leave)
     return failure(res, {
@@ -197,14 +183,34 @@ const decide = async (req, res) => {
     }
   }
 
+  // Kirim notifikasi in-app ke karyawan (muncul di panel lonceng Dashboard
+  // mobile) — sebelumnya bagian ini hanya komentar dan tidak pernah benar-
+  // benar membuat baris Notification, jadi keputusan Pimpinan tidak pernah
+  // sampai ke perangkat karyawan.
+  const periode = `${leave.tanggal_mulai} s/d ${leave.tanggal_selesai}`;
+  await notifyUser({
+    userId: leave.user_id,
+    type: NOTIFICATION_TYPE.IZIN_CUTI,
+    title:
+      decision === LEAVE_STATUS.APPROVED
+        ? "Pengajuan Disetujui"
+        : "Pengajuan Ditolak",
+    message:
+      decision === LEAVE_STATUS.APPROVED
+        ? `Pengajuan ${leave.jenis} Anda (${periode}) telah disetujui.`
+        : `Pengajuan ${leave.jenis} Anda (${periode}) telah ditolak.${
+            catatan_keputusan ? ` Catatan: ${catatan_keputusan}` : ""
+          }`,
+    data: { leaveId: leave.id, status: decision },
+    sentBy: req.user.id,
+  });
+
   await logActivity(
     req,
     "KEPUTUSAN_IZIN_CUTI",
     `Pimpinan memberi keputusan "${decision}" untuk pengajuan ID ${leave.id}`,
   );
 
-  // NB: notifikasi hasil keputusan ke perangkat karyawan dikirim melalui layanan
-  // push notification pihak ketiga (di luar cakupan API ini).
   return success(res, {
     message: `Pengajuan izin/cuti telah ${decision === "approved" ? "disetujui" : "ditolak"} dan notifikasi terkirim ke karyawan.`,
     data: leave,
