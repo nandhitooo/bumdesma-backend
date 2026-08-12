@@ -2,7 +2,6 @@ const { Op } = require("sequelize");
 const { Leave, User, Attendance } = require("../models");
 const { success, failure } = require("../utils/response");
 const { logActivity } = require("../utils/activityLogger");
-const { LEAVE_STATUS, ATTENDANCE_STATUS } = require("../utils/constants");
 const { notifyUser } = require("../utils/notifier");
 const {
   LEAVE_STATUS,
