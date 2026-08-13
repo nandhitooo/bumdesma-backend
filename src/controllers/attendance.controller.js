@@ -1,4 +1,4 @@
-const { Op } = require('sequelize');
+const { Op } = require("sequelize");
 const {
   Attendance,
   QrCode,
@@ -6,17 +6,17 @@ const {
   PiketSchedule,
   Leave,
   User,
-} = require('../models');
-const { success, failure } = require('../utils/response');
-const { checkGeofence } = require('../utils/geofencing');
-const { getSettingsMap } = require('../utils/settingsHelper');
-const { logActivity } = require('../utils/activityLogger');
+} = require("../models");
+const { success, failure } = require("../utils/response");
+const { checkGeofence } = require("../utils/geofencing");
+const { getSettingsMap } = require("../utils/settingsHelper");
+const { logActivity } = require("../utils/activityLogger");
 const {
   ATTENDANCE_STATUS,
   CHECKOUT_STATUS,
   LEAVE_STATUS,
   DAY_TYPE,
-} = require('../utils/constants');
+} = require("../utils/constants");
 
 function todayDateOnly() {
   return new Date().toISOString().slice(0, 10);
@@ -52,7 +52,7 @@ async function resolveScheduleForUser(userId, dateOnlyStr) {
       where: { user_id: userId, tanggal: dateOnlyStr },
     });
     if (!piket) {
-      return { schedule: null, allowed: false, reason: 'not_scheduled_piket' };
+      return { schedule: null, allowed: false, reason: "not_scheduled_piket" };
     }
     const schedule = await WorkSchedule.findOne({
       where: { day_type: DAY_TYPE.SABTU, is_active: true },
@@ -60,7 +60,7 @@ async function resolveScheduleForUser(userId, dateOnlyStr) {
     return { schedule, allowed: true };
   }
 
-  return { schedule: null, allowed: false, reason: 'sunday' };
+  return { schedule: null, allowed: false, reason: "sunday" };
 }
 
 // POST /api/attendance/scan
@@ -72,15 +72,22 @@ const scan = async (req, res) => {
   if (!token || latitude === undefined || longitude === undefined) {
     return failure(res, {
       statusCode: 422,
-      message: 'token, latitude, dan longitude wajib dikirim.',
+      message: "token, latitude, dan longitude wajib dikirim.",
     });
   }
 
   // Layer 2: Verifikasi token QR Code statis
   const qrCode = await QrCode.findOne({ where: { token, is_active: true } });
   if (!qrCode) {
-    await logActivity(req, 'SCAN_REJECTED', 'Token QR Code tidak valid/tidak aktif');
-    return failure(res, { statusCode: 400, message: 'QR Code tidak valid atau sudah tidak aktif.' });
+    await logActivity(
+      req,
+      "SCAN_REJECTED",
+      "Token QR Code tidak valid/tidak aktif",
+    );
+    return failure(res, {
+      statusCode: 400,
+      message: "QR Code tidak valid atau sudah tidak aktif.",
+    });
   }
 
   // Layer 3: Geofencing
@@ -94,14 +101,14 @@ const scan = async (req, res) => {
     Number(longitude),
     officeLat,
     officeLon,
-    radius
+    radius,
   );
 
   if (!isWithinRadius) {
     await logActivity(
       req,
-      'SCAN_REJECTED',
-      `Geofencing gagal, jarak ${distance}m dari kantor (radius ${radius}m)`
+      "SCAN_REJECTED",
+      `Geofencing gagal, jarak ${distance}m dari kantor (radius ${radius}m)`,
     );
     return failure(res, {
       statusCode: 400,
@@ -111,6 +118,24 @@ const scan = async (req, res) => {
   }
 
   const dateOnlyStr = todayDateOnly();
+
+  // Hari libur nasional / cuti bersama -> tutup akses scanning
+  let holidays = [];
+  try {
+    holidays =
+      typeof settings.national_holidays === "string"
+        ? JSON.parse(settings.national_holidays)
+        : settings.national_holidays || [];
+  } catch {
+    holidays = [];
+  }
+  if (holidays.includes(dateOnlyStr)) {
+    return failure(res, {
+      statusCode: 400,
+      message:
+        "Hari ini merupakan hari libur nasional/cuti bersama. Akses absensi ditutup.",
+    });
+  }
 
   // Karyawan sedang izin/cuti disetujui pada tanggal ini -> tutup akses scan
   const approvedLeave = await Leave.findOne({
@@ -124,21 +149,27 @@ const scan = async (req, res) => {
   if (approvedLeave) {
     return failure(res, {
       statusCode: 400,
-      message: 'Anda sedang dalam masa izin/cuti yang disetujui. Absensi tidak diperlukan hari ini.',
+      message:
+        "Anda sedang dalam masa izin/cuti yang disetujui. Absensi tidak diperlukan hari ini.",
     });
   }
 
   // Layer 4: Jadwal kerja & hak akses hari ini (termasuk validasi piket Sabtu)
-  const { schedule, allowed, reason } = await resolveScheduleForUser(userId, dateOnlyStr);
+  const { schedule, allowed, reason } = await resolveScheduleForUser(
+    userId,
+    dateOnlyStr,
+  );
   if (!allowed) {
     const message =
-      reason === 'not_scheduled_piket'
-        ? 'Anda tidak terdaftar dalam jadwal piket Sabtu ini. Akses absensi ditutup.'
-        : 'Hari ini bukan hari kerja. Akses absensi ditutup.';
+      reason === "not_scheduled_piket"
+        ? "Anda tidak terdaftar dalam jadwal piket Sabtu ini. Akses absensi ditutup."
+        : "Hari ini bukan hari kerja. Akses absensi ditutup.";
     return failure(res, { statusCode: 400, message });
   }
 
-  let attendance = await Attendance.findOne({ where: { user_id: userId, tanggal: dateOnlyStr } });
+  let attendance = await Attendance.findOne({
+    where: { user_id: userId, tanggal: dateOnlyStr },
+  });
   const now = new Date();
 
   // === ABSEN MASUK ===
@@ -151,7 +182,9 @@ const scan = async (req, res) => {
     let lateMinutes = 0;
 
     if (scheduleStart) {
-      const deadline = new Date(scheduleStart.getTime() + toleranceMinutes * 60000);
+      const deadline = new Date(
+        scheduleStart.getTime() + toleranceMinutes * 60000,
+      );
       if (now > deadline) {
         status = ATTENDANCE_STATUS.TERLAMBAT;
         lateMinutes = minutesBetween(now, scheduleStart);
@@ -176,15 +209,19 @@ const scan = async (req, res) => {
       ? await attendance.update(payload)
       : await Attendance.create(payload);
 
-    await logActivity(req, 'SCAN_ABSEN_MASUK', `Absen masuk tercatat, status: ${status}`);
+    await logActivity(
+      req,
+      "SCAN_ABSEN_MASUK",
+      `Absen masuk tercatat, status: ${status}`,
+    );
 
     return success(res, {
       statusCode: 201,
       message:
         status === ATTENDANCE_STATUS.TERLAMBAT
           ? `Absen masuk berhasil, namun Anda tercatat TERLAMBAT ${lateMinutes} menit.`
-          : 'Absen masuk berhasil. Selamat bekerja!',
-      data: { attendance, jenis: 'masuk' },
+          : "Absen masuk berhasil. Selamat bekerja!",
+      data: { attendance, jenis: "masuk" },
     });
   }
 
@@ -192,12 +229,14 @@ const scan = async (req, res) => {
   if (attendance.jam_pulang) {
     return failure(res, {
       statusCode: 400,
-      message: 'Anda sudah melakukan absen masuk dan pulang pada hari ini.',
+      message: "Anda sudah melakukan absen masuk dan pulang pada hari ini.",
     });
   }
 
   // === ABSEN PULANG ===
-  const scheduleEnd = schedule ? combineDateAndTime(dateOnlyStr, schedule.end_time) : null;
+  const scheduleEnd = schedule
+    ? combineDateAndTime(dateOnlyStr, schedule.end_time)
+    : null;
   let checkoutStatus = CHECKOUT_STATUS.NORMAL;
   let overtimeMinutes = 0;
 
@@ -217,18 +256,76 @@ const scan = async (req, res) => {
 
   await logActivity(
     req,
-    'SCAN_ABSEN_PULANG',
+    "SCAN_ABSEN_PULANG",
     `Absen pulang tercatat, status: ${checkoutStatus}${
-      overtimeMinutes ? `, lembur ${overtimeMinutes} menit` : ''
-    }`
+      overtimeMinutes ? `, lembur ${overtimeMinutes} menit` : ""
+    }`,
   );
 
   return success(res, {
     message:
       checkoutStatus === CHECKOUT_STATUS.LEMBUR
         ? `Absen pulang berhasil. Anda tercatat lembur selama ${overtimeMinutes} menit.`
-        : 'Absen pulang berhasil. Terima kasih atas kerja keras Anda hari ini!',
-    data: { attendance, jenis: 'pulang' },
+        : "Absen pulang berhasil. Terima kasih atas kerja keras Anda hari ini!",
+    data: { attendance, jenis: "pulang" },
+  });
+};
+
+// POST /api/attendance  (Admin - membuat data absensi manual untuk karyawan
+// yang belum memiliki catatan absensi pada tanggal tersebut, mis. karena
+// error di aplikasi mobile atau karyawan lupa scan)
+// Body: { userId, tanggal, jam_masuk, jam_pulang, status, checkout_status, notes }
+const createManual = async (req, res) => {
+  const {
+    userId,
+    tanggal,
+    jam_masuk,
+    jam_pulang,
+    status,
+    checkout_status,
+    notes,
+  } = req.body;
+
+  if (!userId || !tanggal) {
+    return failure(res, {
+      statusCode: 422,
+      message: "userId dan tanggal wajib diisi.",
+    });
+  }
+
+  const existing = await Attendance.findOne({
+    where: { user_id: userId, tanggal },
+  });
+  if (existing) {
+    return failure(res, {
+      statusCode: 409,
+      message:
+        "Data absensi untuk karyawan dan tanggal ini sudah ada. Gunakan PUT /api/attendance/:id untuk mengoreksinya.",
+    });
+  }
+
+  const attendance = await Attendance.create({
+    user_id: userId,
+    tanggal,
+    jam_masuk: jam_masuk || null,
+    jam_pulang: jam_pulang || null,
+    status: status || ATTENDANCE_STATUS.ALPA,
+    checkout_status: checkout_status || null,
+    notes: notes || null,
+    is_manual_correction: true,
+    corrected_by: req.user.id,
+  });
+
+  await logActivity(
+    req,
+    "KOREKSI_ABSENSI",
+    `Admin membuat data absensi manual untuk karyawan ID ${userId} pada ${tanggal}`,
+  );
+
+  return success(res, {
+    statusCode: 201,
+    message: "Data absensi berhasil dibuat.",
+    data: attendance,
   });
 };
 
@@ -240,8 +337,14 @@ const myAttendance = async (req, res) => {
 
   const rows = await Attendance.findAll({
     where,
-    order: [['tanggal', 'DESC']],
-    include: [{ model: WorkSchedule, as: 'schedule', attributes: ['label', 'start_time', 'end_time'] }],
+    order: [["tanggal", "DESC"]],
+    include: [
+      {
+        model: WorkSchedule,
+        as: "schedule",
+        attributes: ["label", "start_time", "end_time"],
+      },
+    ],
   });
 
   return success(res, { data: rows });
@@ -250,7 +353,15 @@ const myAttendance = async (req, res) => {
 // GET /api/attendance?tanggal=&user_id=&status=&page=&limit=
 // Untuk Admin & Pimpinan memantau kehadiran seluruh karyawan
 const getAll = async (req, res) => {
-  const { tanggal, start, end, user_id, status, page = 1, limit = 50 } = req.query;
+  const {
+    tanggal,
+    start,
+    end,
+    user_id,
+    status,
+    page = 1,
+    limit = 50,
+  } = req.query;
   const where = {};
   if (tanggal) where.tanggal = tanggal;
   if (start && end) where.tanggal = { [Op.between]: [start, end] };
@@ -261,12 +372,12 @@ const getAll = async (req, res) => {
   const { rows, count } = await Attendance.findAndCountAll({
     where,
     include: [
-      { model: User, as: 'user', attributes: ['id', 'nip', 'name', 'jabatan'] },
-      { model: WorkSchedule, as: 'schedule', attributes: ['label'] },
+      { model: User, as: "user", attributes: ["id", "nip", "name", "jabatan"] },
+      { model: WorkSchedule, as: "schedule", attributes: ["label"] },
     ],
     order: [
-      ['tanggal', 'DESC'],
-      ['jam_masuk', 'ASC'],
+      ["tanggal", "DESC"],
+      ["jam_masuk", "ASC"],
     ],
     limit: Number(limit),
     offset,
@@ -283,13 +394,21 @@ const getAll = async (req, res) => {
 const dashboardSummary = async (req, res) => {
   const tanggal = req.query.tanggal || todayDateOnly();
 
-  const totalKaryawan = await User.count({ where: { role: 'karyawan', status: 'active' } });
+  const totalKaryawan = await User.count({
+    where: { role: "karyawan", status: "active" },
+  });
   const records = await Attendance.findAll({ where: { tanggal } });
 
   const hadir = records.filter((r) => r.jam_masuk).length;
-  const terlambat = records.filter((r) => r.status === ATTENDANCE_STATUS.TERLAMBAT).length;
-  const izinCuti = records.filter((r) => r.status === ATTENDANCE_STATUS.IZIN_CUTI).length;
-  const lembur = records.filter((r) => r.checkout_status === CHECKOUT_STATUS.LEMBUR).length;
+  const terlambat = records.filter(
+    (r) => r.status === ATTENDANCE_STATUS.TERLAMBAT,
+  ).length;
+  const izinCuti = records.filter(
+    (r) => r.status === ATTENDANCE_STATUS.IZIN_CUTI,
+  ).length;
+  const lembur = records.filter(
+    (r) => r.checkout_status === CHECKOUT_STATUS.LEMBUR,
+  ).length;
   const belumAbsen = Math.max(totalKaryawan - records.length, 0);
 
   return success(res, {
@@ -308,14 +427,19 @@ const dashboardSummary = async (req, res) => {
 // PUT /api/attendance/:id  (Admin - koreksi manual)
 const correctManually = async (req, res) => {
   const attendance = await Attendance.findByPk(req.params.id);
-  if (!attendance) return failure(res, { statusCode: 404, message: 'Data absensi tidak ditemukan.' });
+  if (!attendance)
+    return failure(res, {
+      statusCode: 404,
+      message: "Data absensi tidak ditemukan.",
+    });
 
   const { jam_masuk, jam_pulang, status, checkout_status, notes } = req.body;
 
   if (jam_masuk !== undefined) attendance.jam_masuk = jam_masuk;
   if (jam_pulang !== undefined) attendance.jam_pulang = jam_pulang;
   if (status !== undefined) attendance.status = status;
-  if (checkout_status !== undefined) attendance.checkout_status = checkout_status;
+  if (checkout_status !== undefined)
+    attendance.checkout_status = checkout_status;
   if (notes !== undefined) attendance.notes = notes;
 
   attendance.is_manual_correction = true;
@@ -324,11 +448,21 @@ const correctManually = async (req, res) => {
 
   await logActivity(
     req,
-    'KOREKSI_ABSENSI',
-    `Admin melakukan koreksi manual data absensi ID ${attendance.id}`
+    "KOREKSI_ABSENSI",
+    `Admin melakukan koreksi manual data absensi ID ${attendance.id}`,
   );
 
-  return success(res, { message: 'Data absensi berhasil dikoreksi.', data: attendance });
+  return success(res, {
+    message: "Data absensi berhasil dikoreksi.",
+    data: attendance,
+  });
 };
 
-module.exports = { scan, myAttendance, getAll, dashboardSummary, correctManually };
+module.exports = {
+  scan,
+  myAttendance,
+  getAll,
+  dashboardSummary,
+  correctManually,
+  createManual,
+};
