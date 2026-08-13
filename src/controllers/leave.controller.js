@@ -1,3 +1,4 @@
+const fs = require("fs");
 const { Op } = require("sequelize");
 const { Leave, User, Attendance } = require("../models");
 const { success, failure } = require("../utils/response");
@@ -9,11 +10,34 @@ const {
   NOTIFICATION_TYPE,
 } = require("../utils/constants");
 
+// Multer's disk storage writes the uploaded file BEFORE this controller
+// ever runs — it happens in the upload.middleware.js layer, ahead of any
+// of the validation below. That means every failure path here (missing
+// fields, bad date range, or a DB error from Leave.create()) previously
+// left the just-uploaded PDF/DOCX permanently orphaned on disk with no
+// Leave row ever referencing it. Repeated failed submissions (network
+// hiccups, validation errors, retries while debugging) would silently
+// accumulate garbage files forever. Call this on every non-success path
+// so a failed request never leaves a leftover file behind.
+function removeUploadedFileIfAny(req) {
+  if (req.file?.path) {
+    fs.unlink(req.file.path, (err) => {
+      if (err) {
+        console.error(
+          "[Leave] Gagal menghapus file yatim setelah pengajuan gagal:",
+          err.message,
+        );
+      }
+    });
+  }
+}
+
 // POST /api/leaves  (Karyawan mengajukan izin/cuti dari mobile, multipart dengan file lampiran)
 const create = async (req, res) => {
   const { jenis, tanggal_mulai, tanggal_selesai, alasan } = req.body;
 
   if (!jenis || !tanggal_mulai || !tanggal_selesai || !alasan) {
+    removeUploadedFileIfAny(req);
     return failure(res, {
       statusCode: 422,
       message: "jenis, tanggal_mulai, tanggal_selesai, dan alasan wajib diisi.",
@@ -21,34 +45,45 @@ const create = async (req, res) => {
   }
 
   if (new Date(tanggal_selesai) < new Date(tanggal_mulai)) {
+    removeUploadedFileIfAny(req);
     return failure(res, {
       statusCode: 422,
       message: "tanggal_selesai tidak boleh sebelum tanggal_mulai.",
     });
   }
 
-  const leave = await Leave.create({
-    user_id: req.user.id,
-    jenis,
-    tanggal_mulai,
-    tanggal_selesai,
-    alasan,
-    file_lampiran: req.file ? `/uploads/surat-izin/${req.file.filename}` : null,
-    status: LEAVE_STATUS.PENDING,
-  });
+  try {
+    const leave = await Leave.create({
+      user_id: req.user.id,
+      jenis,
+      tanggal_mulai,
+      tanggal_selesai,
+      alasan,
+      file_lampiran: req.file
+        ? `/uploads/surat-izin/${req.file.filename}`
+        : null,
+      status: LEAVE_STATUS.PENDING,
+    });
 
-  await logActivity(
-    req,
-    "AJUKAN_IZIN_CUTI",
-    `Mengajukan ${jenis} (${tanggal_mulai} s/d ${tanggal_selesai})`,
-  );
+    await logActivity(
+      req,
+      "AJUKAN_IZIN_CUTI",
+      `Mengajukan ${jenis} (${tanggal_mulai} s/d ${tanggal_selesai})`,
+    );
 
-  return success(res, {
-    statusCode: 201,
-    message:
-      "Pengajuan izin/cuti berhasil dikirim dan menunggu tinjauan Admin.",
-    data: leave,
-  });
+    return success(res, {
+      statusCode: 201,
+      message:
+        "Pengajuan izin/cuti berhasil dikirim dan menunggu tinjauan Admin.",
+      data: leave,
+    });
+  } catch (err) {
+    // Leave.create() failed (DB error, validation error, etc.) — the file
+    // was already written by multer, so clean it up before propagating
+    // the error to the global error handler.
+    removeUploadedFileIfAny(req);
+    throw err;
+  }
 };
 
 // GET /api/leaves/me
@@ -138,10 +173,6 @@ const decide = async (req, res) => {
     });
   }
 
-  // 'leave' is declared here, before anything below references it — this
-  // fixes the "Cannot access 'leave' before initialization" crash that
-  // happened when the notifyUser() call was previously inserted above
-  // this declaration.
   const leave = await Leave.findByPk(req.params.id);
   if (!leave)
     return failure(res, {
@@ -183,10 +214,7 @@ const decide = async (req, res) => {
     }
   }
 
-  // Kirim notifikasi in-app ke karyawan (muncul di panel lonceng Dashboard
-  // mobile) — sebelumnya bagian ini hanya komentar dan tidak pernah benar-
-  // benar membuat baris Notification, jadi keputusan Pimpinan tidak pernah
-  // sampai ke perangkat karyawan.
+  // Kirim notifikasi in-app ke karyawan (muncul di panel lonceng Dashboard mobile).
   const periode = `${leave.tanggal_mulai} s/d ${leave.tanggal_selesai}`;
   await notifyUser({
     userId: leave.user_id,
