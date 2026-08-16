@@ -13,7 +13,13 @@
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
     "db:reset": "sequelize-cli db:migrate:undo:all && sequelize-cli db:migrate && sequelize-cli db:seed:all"
   },
-  "keywords": ["absensi", "qrcode", "bumdesma", "express", "postgresql"],
+  "keywords": [
+    "absensi",
+    "qrcode",
+    "bumdesma",
+    "express",
+    "postgresql"
+  ],
   "author": "Fernandhiito",
   "license": "ISC",
   "dependencies": {
@@ -27,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14",
     "pdfkit": "^0.15.0",
     "pg": "^8.12.0",
     "pg-hstore": "^2.3.4",
