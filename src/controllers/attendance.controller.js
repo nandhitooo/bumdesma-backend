@@ -32,6 +32,26 @@ function combineDateAndTime(dateOnlyStr, timeStr) {
 }
 
 /**
+ * Memeriksa apakah [dateOnlyStr] termasuk dalam salah satu rentang hari
+ * libur nasional. Mendukung dua format entri pada system_settings ->
+ * national_holidays untuk kompatibilitas dengan data lama:
+ *   - String tanggal tunggal, mis. "2026-08-17" (format lama)
+ *   - Objek rentang tanggal, mis.
+ *     { tanggal_mulai: "2026-04-08", tanggal_selesai: "2026-04-15",
+ *       keterangan: "Cuti Bersama Lebaran" } (format baru, mendukung
+ *     libur panjang multi-hari)
+ */
+function isNationalHoliday(dateOnlyStr, holidays) {
+  return holidays.some((h) => {
+    if (typeof h === "string") return h === dateOnlyStr;
+    const start = h.tanggal_mulai ?? h.start;
+    const end = h.tanggal_selesai ?? h.end ?? start;
+    if (!start) return false;
+    return dateOnlyStr >= start && dateOnlyStr <= end;
+  });
+}
+
+/**
  * Menentukan jadwal kerja yang berlaku untuk seorang karyawan pada tanggal tertentu.
  * Senin-Jumat -> jadwal reguler.
  * Sabtu -> hanya berlaku jika karyawan terdaftar di piket_schedules pada tanggal itu.
@@ -119,7 +139,9 @@ const scan = async (req, res) => {
 
   const dateOnlyStr = todayDateOnly();
 
-  // Hari libur nasional / cuti bersama -> tutup akses scanning
+  // Hari libur nasional / cuti bersama -> tutup akses scanning. Mendukung
+  // entri rentang tanggal (libur panjang) sekaligus format lama (tanggal
+  // tunggal) lewat isNationalHoliday().
   let holidays = [];
   try {
     holidays =
@@ -129,7 +151,7 @@ const scan = async (req, res) => {
   } catch {
     holidays = [];
   }
-  if (holidays.includes(dateOnlyStr)) {
+  if (isNationalHoliday(dateOnlyStr, holidays)) {
     return failure(res, {
       statusCode: 400,
       message:
