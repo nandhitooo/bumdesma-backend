@@ -8,6 +8,7 @@ const {
   LEAVE_STATUS,
   ATTENDANCE_STATUS,
   NOTIFICATION_TYPE,
+  LEAVE_TYPE,
 } = require("../utils/constants");
 
 // Multer's disk storage writes the uploaded file BEFORE this controller
@@ -36,11 +37,18 @@ function removeUploadedFileIfAny(req) {
 const create = async (req, res) => {
   const { jenis, tanggal_mulai, tanggal_selesai, alasan } = req.body;
 
-  if (!jenis || !tanggal_mulai || !tanggal_selesai || !alasan) {
+  if (!jenis || !Object.values(LEAVE_TYPE).includes(jenis)) {
     removeUploadedFileIfAny(req);
     return failure(res, {
       statusCode: 422,
-      message: "jenis, tanggal_mulai, tanggal_selesai, dan alasan wajib diisi.",
+      message: "jenis harus salah satu dari: sakit, izin, cuti.",
+    });
+  }
+  if (!tanggal_mulai || !tanggal_selesai || !alasan) {
+    removeUploadedFileIfAny(req);
+    return failure(res, {
+      statusCode: 422,
+      message: "tanggal_mulai, tanggal_selesai, dan alasan wajib diisi.",
     });
   }
 
