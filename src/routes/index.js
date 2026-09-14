@@ -9,6 +9,7 @@ router.use('/reports', require('./report.routes'));
 router.use('/settings', require('./setting.routes'));
 router.use('/activity-logs', require('./activityLog.routes'));
 router.use('/notifications', require('./notification.routes'));
+router.use('/push', require('./push.routes'));
 
 router.get('/', (req, res) => {
   res.json({
