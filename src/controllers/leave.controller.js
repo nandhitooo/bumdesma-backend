@@ -103,13 +103,15 @@ const myLeaves = async (req, res) => {
   return success(res, { data: rows });
 };
 
-// GET /api/leaves?status=&user_id=
+// GET /api/leaves?status=&user_id=&search=&page=&limit=
 // Admin melihat semua pengajuan untuk ditinjau; Pimpinan melihat yang sudah diteruskan Admin
 const getAll = async (req, res) => {
-  const { status, user_id, page = 1, limit = 20 } = req.query;
+  const { status, user_id, search, page = 1, limit = 20 } = req.query;
   const where = {};
   if (status) where.status = status;
   if (user_id) where.user_id = user_id;
+  // Pencarian nama karyawan (case-insensitive) via relasi `user`
+  const userWhere = search ? { name: { [Op.iLike]: `%${search}%` } } : undefined;
 
   // Pimpinan hanya perlu melihat pengajuan yang sudah ditinjau Admin ke atas
   if (req.user.role === "pimpinan" && !status) {
@@ -125,10 +127,18 @@ const getAll = async (req, res) => {
   const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await Leave.findAndCountAll({
     where,
-    include: [{ model: User, as: "user", attributes: ["id", "nip", "name"] }],
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["id", "nip", "name"],
+        where: userWhere,
+      },
+    ],
     order: [["created_at", "DESC"]],
     limit: Number(limit),
     offset,
+    distinct: true,
   });
 
   return success(res, {

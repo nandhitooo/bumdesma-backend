@@ -5,18 +5,51 @@ const { logActivity } = require('../utils/activityLogger');
 const { notifyUser } = require('../utils/notifier');
 const { NOTIFICATION_TYPE } = require('../utils/constants');
 
-// GET /api/piket?start=&end=
+// GET /api/piket?start=&end=&search=&page=&limit=
+// `start`/`end` membatasi rentang tanggal (dipakai halaman Admin per hari).
+// `search` menyaring nama karyawan (case-insensitive). Pagination opsional:
+// tanpa `page`/`limit` (mobile app) seluruh baris dikembalikan tanpa meta,
+// jadi perilaku lama & app mobile tidak berubah.
 const getAll = async (req, res) => {
-  const { start, end } = req.query;
+  const { start, end, search, page, limit } = req.query;
   const where = {};
   if (start && end) where.tanggal = { [Op.between]: [start, end] };
 
-  const rows = await PiketSchedule.findAll({
-    where,
-    include: [{ model: User, as: 'user', attributes: ['id', 'nip', 'name'] }],
-    order: [['tanggal', 'ASC']],
-  });
+  const include = [
+    {
+      model: User,
+      as: 'user',
+      attributes: ['id', 'nip', 'name'],
+      where: search ? { name: { [Op.iLike]: `%${search}%` } } : undefined,
+    },
+  ];
 
+  const options = {
+    where,
+    include,
+    order: [
+      ['tanggal', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  };
+
+  if (page !== undefined || limit !== undefined) {
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const perPage = Math.max(Number(limit) || 10, 1);
+    const { rows, count } = await PiketSchedule.findAndCountAll({
+      ...options,
+      limit: perPage,
+      offset: (currentPage - 1) * perPage,
+      distinct: true,
+    });
+
+    return success(res, {
+      data: rows,
+      meta: { total: count, page: currentPage, limit: perPage },
+    });
+  }
+
+  const rows = await PiketSchedule.findAll(options);
   return success(res, { data: rows });
 };
 
