@@ -11,6 +11,11 @@ router.post(
   authenticate,
   asyncHandler(ctrl.changePassword),
 );
+router.post(
+  "/change-username",
+  authenticate,
+  asyncHandler(ctrl.changeUsername),
+);
 router.post("/email", authenticate, asyncHandler(ctrl.updateEmail));
 // Belum login (karyawan lupa password) -> TIDAK melewati authenticate.
 router.post("/forgot-password", asyncHandler(ctrl.forgotPassword));

@@ -447,6 +447,89 @@ const resetPassword = async (req, res) => {
   });
 };
 
+// POST /api/auth/change-username
+// Ganti username login mandiri untuk Admin/Pimpinan yang sudah login.
+// Wajib konfirmasi password supaya sesi yang dibajak tidak bisa mengganti
+// username, dan username baru harus unik di tabel admin_accounts.
+const changeUsername = async (req, res) => {
+  if (req.actorType === ROLES.KARYAWAN) {
+    return failure(res, {
+      statusCode: 403,
+      message: "Ganti username hanya untuk akun Admin/Pimpinan.",
+    });
+  }
+
+  const { newUsername, password } = req.body;
+
+  if (!newUsername || !password) {
+    return failure(res, {
+      statusCode: 422,
+      message: "Username baru dan password wajib diisi.",
+    });
+  }
+
+  const username = String(newUsername).trim();
+
+  if (username.length < 4 || username.length > 50) {
+    return failure(res, {
+      statusCode: 422,
+      message: "Username harus 4-50 karakter.",
+    });
+  }
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+    return failure(res, {
+      statusCode: 422,
+      message:
+        "Username hanya boleh huruf, angka, titik, garis bawah, dan tanda hubung.",
+    });
+  }
+
+  const account = await AdminAccount.findByPk(req.user.id);
+  if (!account) {
+    return failure(res, { statusCode: 404, message: "Akun tidak ditemukan." });
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, account.password);
+  if (!isPasswordValid) {
+    return failure(res, {
+      statusCode: 401,
+      message: "Password tidak sesuai.",
+    });
+  }
+
+  if (username === account.username) {
+    return failure(res, {
+      statusCode: 422,
+      message: "Username baru sama dengan username sekarang.",
+    });
+  }
+
+  // Cek unik (soft-deleted row tetap mengunci username lama karena paranoid,
+  // jadi cukup cek antar baris aktif).
+  const taken = await AdminAccount.findOne({ where: { username } });
+  if (taken) {
+    return failure(res, {
+      statusCode: 409,
+      message: "Username sudah dipakai. Gunakan yang lain.",
+    });
+  }
+
+  account.username = username;
+  await account.save();
+
+  await logActivity(
+    req,
+    "CHANGE_USERNAME",
+    "Pengguna mengganti username login sendiri",
+  );
+
+  return success(res, {
+    message: "Username berhasil diperbarui.",
+    data: { username: account.username },
+  });
+};
+
 // GET /api/auth/me
 const me = async (req, res) => {
   const isKaryawan = req.actorType === ROLES.KARYAWAN;
@@ -477,6 +560,7 @@ module.exports = {
   adminLogin,
   refreshToken,
   changePassword,
+  changeUsername,
   updateEmail,
   forgotPassword,
   resetPassword,
