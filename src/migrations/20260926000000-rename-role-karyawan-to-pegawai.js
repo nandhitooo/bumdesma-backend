@@ -49,16 +49,15 @@ module.exports = {
       const enumExists = Array.isArray(enumType) && enumType[0].length > 0;
 
       if (enumExists) {
-        // Pastikan data lama sudah tidak memakai label lama sebelum dihapus.
-        await sequelize.query(
-          `UPDATE "activity_logs" SET "actor_type" = 'pegawai' WHERE "actor_type" = 'karyawan';`,
-        );
+        // RENAME VALUE otomatis mengubah label pada semua baris yang memakai
+        // nilai lama - TIDAK boleh UPDATE dulu: 'pegawai' belum valid sebelum
+        // label ENUM-nya ada (migration pertama gagal persis karena ini).
         await sequelize.query(
           `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'karyawan' TO 'pegawai';`,
         );
       } else {
-        // Actor_type ada tetapi bukan ENUM (kolom dibuat manual). Ubah ke
-        // ENUM 'pegawai'/'admin'/'pimpinan' setelah data lama dikonversi.
+        // Kolom ada tetapi bukan ENUM (varchar, dibuat manual): konversi data
+        // dulu di domain varchar, baru ubah tipe kolomnya ke ENUM.
         await sequelize.query(
           `UPDATE "activity_logs" SET "actor_type" = 'pegawai' WHERE "actor_type" = 'karyawan';`,
         );
@@ -109,12 +108,9 @@ module.exports = {
       );
     }
 
-    // ---- activity_logs.actor_type: kembalikan ENUM + data ----
+    // ---- activity_logs.actor_type: kembalikan ENUM (data ikut ter-relabel) ----
     const logsTable = await queryInterface.describeTable("activity_logs");
     if (logsTable.actor_type) {
-      await sequelize.query(
-        `UPDATE "activity_logs" SET "actor_type" = 'karyawan' WHERE "actor_type" = 'pegawai';`,
-      );
       await sequelize.query(
         `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'pegawai' TO 'karyawan';`,
       );
