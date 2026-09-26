@@ -1,7 +1,7 @@
 {
   "name": "bumdesma-backend",
   "version": "1.0.0",
-  "description": "Backend REST API - Sistem Manajemen Absensi Karyawan Berbasis QR Code pada BUMDESMA Podo Rukun LKD",
+  "description": "Backend REST API - Sistem Manajemen Absensi Pegawai Berbasis QR Code pada BUMDESMA Podo Rukun LKD",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

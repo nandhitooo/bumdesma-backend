@@ -1,7 +1,7 @@
 'use strict';
 
 // Menyimpan kode OTP (di-hash, bukan disimpan mentah) dan waktu
-// kedaluwarsanya untuk fitur "Lupa Password" karyawan. OTP dikirim ke
+// kedaluwarsanya untuk fitur "Lupa Password" pegawai. OTP dikirim ke
 // email pemulihan yang sudah dikumpulkan lewat fitur wajib-isi-email
 // (lihat migration 20260101000012-add-email-to-users.js).
 module.exports = {

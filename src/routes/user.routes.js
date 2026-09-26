@@ -6,7 +6,7 @@ const ctrl = require("../controllers/user.controller");
 
 router.use(authenticate);
 
-// Read-only: Admin & Pimpinan sama-sama boleh melihat daftar karyawan
+// Read-only: Admin & Pimpinan sama-sama boleh melihat daftar pegawai
 // (dipakai halaman Absensi & Laporan untuk menampilkan seluruh pegawai,
 // termasuk yang "Belum Absen").
 router.get(

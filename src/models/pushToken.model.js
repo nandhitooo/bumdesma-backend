@@ -2,7 +2,7 @@ const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../config/database');
 
 /// FCM registration token per perangkat, dipakai backend untuk mengirim
-/// push notification ke notif bar HP karyawan (lihat services/push.service.js).
+/// push notification ke notif bar HP pegawai (lihat services/push.service.js).
 /// Barisnya dibuat saat app mobile login (POST /api/push/register) dan
 /// dihapus saat logout (POST /api/push/unregister).
 class PushToken extends Model {

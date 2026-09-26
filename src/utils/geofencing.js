@@ -1,6 +1,6 @@
 // Menghitung jarak antar dua koordinat GPS menggunakan Haversine formula.
 // Dipakai untuk validasi Layer 3 (Geofencing) pada proses absensi:
-// jika jarak karyawan terhadap titik kantor > radius yang dikonfigurasi, absensi ditolak.
+// jika jarak pegawai terhadap titik kantor > radius yang dikonfigurasi, absensi ditolak.
 
 const EARTH_RADIUS_METERS = 6371000;
 
@@ -32,7 +32,7 @@ function haversineDistanceMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Memeriksa apakah koordinat karyawan berada di dalam radius aman kantor.
+ * Memeriksa apakah koordinat pegawai berada di dalam radius aman kantor.
  * @returns {{ distance: number, isWithinRadius: boolean }}
  */
 function checkGeofence(userLat, userLon, officeLat, officeLon, radiusMeters) {

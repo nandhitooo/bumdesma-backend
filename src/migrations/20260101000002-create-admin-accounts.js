@@ -12,7 +12,7 @@ module.exports = {
         type: Sequelize.STRING(50),
         allowNull: false,
         unique: true,
-        comment: 'Dipakai sebagai identitas login Admin/Pimpinan (bukan NIP karyawan)',
+        comment: 'Dipakai sebagai identitas login Admin/Pimpinan (bukan NIP pegawai)',
       },
       name: {
         type: Sequelize.STRING(150),

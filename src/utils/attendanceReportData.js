@@ -194,7 +194,7 @@ function statusCell({ attRow, leaveJenis, dayOfWeek, isPiketDay }) {
   }
 
   if (dayOfWeek === 6) {
-    // Sabtu: hanya karyawan piket yang punya kewajiban hadir
+    // Sabtu: hanya pegawai piket yang punya kewajiban hadir
     if (isPiketDay) return { text: "P", ...COLOR.piket };
     return { text: "", fill: null, font: null };
   }

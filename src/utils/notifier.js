@@ -2,12 +2,12 @@ const { Notification } = require('../models');
 const { pushToUser } = require('../services/push.service');
 
 /**
- * Membuat satu notifikasi in-app untuk seorang karyawan. Notifikasi ini
+ * Membuat satu notifikasi in-app untuk seorang pegawai. Notifikasi ini
  * yang dibaca oleh app mobile lewat GET /api/notifications dan ditampilkan
  * di panel lonceng Dashboard.
  *
  * Setelah baris in-app tersimpan, push FCM juga dikirim ke notif bar HP
- * karyawan (channel piket/izin_cuti — lihat services/push.service.js).
+ * pegawai (channel piket/izin_cuti — lihat services/push.service.js).
  * Push gagal tidak menggagalkan notifikasi in-app: pushToUser tidak pernah
  * throw.
  */
@@ -32,7 +32,7 @@ async function notifyUser({ userId, type, title, message, data = null, sentBy = 
 }
 
 /**
- * Membuat notifikasi yang sama untuk beberapa karyawan sekaligus,
+ * Membuat notifikasi yang sama untuk beberapa pegawai sekaligus,
  * lalu mengirim push FCM ke masing-masing penerima.
  */
 async function notifyUsers({ userIds, type, title, message, data = null, sentBy = null }) {

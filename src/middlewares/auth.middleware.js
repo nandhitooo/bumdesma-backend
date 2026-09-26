@@ -7,11 +7,11 @@ const { ROLES } = require('../utils/constants');
  * Memverifikasi JWT pada header Authorization: Bearer <token> dan melampirkan
  * data pengguna (tanpa password) ke req.user.
  *
- * Token menyimpan `actorType`: 'karyawan' (akun di tabel users, login pakai
+ * Token menyimpan `actorType`: 'pegawai' (akun di tabel users, login pakai
  * NIP dari app mobile) atau 'admin' (akun di tabel admin_accounts, login
  * pakai username dari Website - bisa berperan Admin atau Pimpinan).
- * req.user.role selalu tersedia untuk kebutuhan authorize(): 'karyawan'
- * untuk karyawan, atau nilai admin_accounts.role ('admin'/'pimpinan').
+ * req.user.role selalu tersedia untuk kebutuhan authorize(): 'pegawai'
+ * untuk pegawai, atau nilai admin_accounts.role ('admin'/'pimpinan').
  */
 async function authenticate(req, res, next) {
   try {
@@ -45,8 +45,8 @@ async function authenticate(req, res, next) {
           message: 'Akun tidak ditemukan atau sudah dinonaktifkan.',
         });
       }
-      req.user = { ...user.toSafeJSON(), role: ROLES.KARYAWAN };
-      req.actorType = ROLES.KARYAWAN;
+      req.user = { ...user.toSafeJSON(), role: ROLES.PEGAWAI };
+      req.actorType = ROLES.PEGAWAI;
     }
 
     next();

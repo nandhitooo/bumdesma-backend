@@ -6,7 +6,7 @@ const { logActivity } = require('../utils/activityLogger');
 const { USER_STATUS } = require('../utils/constants');
 
 // Controller ini khusus mengelola akun Admin & Pimpinan (tabel admin_accounts),
-// terpisah dari data Karyawan (tabel users, dikelola lewat user.controller.js).
+// terpisah dari data Pegawai (tabel users, dikelola lewat user.controller.js).
 // Hanya Admin yang boleh mengakses (lihat adminAccount.routes.js).
 
 // GET /api/admin-accounts?role=&status=&search=&page=&limit=

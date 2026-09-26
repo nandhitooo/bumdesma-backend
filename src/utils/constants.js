@@ -2,10 +2,10 @@
 
 // ROLES dipakai untuk pengecekan otorisasi rute (authorize(ROLES.ADMIN), dst).
 // Nilainya sama seperti sebelumnya; sumbernya sekarang dua tabel berbeda:
-// karyawan (implisit 'karyawan', tabel users) atau admin_accounts.role.
+// pegawai (implisit 'pegawai', tabel users) atau admin_accounts.role.
 const ROLES = Object.freeze({
   ADMIN: "admin",
-  KARYAWAN: "karyawan",
+  PEGAWAI: "pegawai",
   PIMPINAN: "pimpinan",
 });
 

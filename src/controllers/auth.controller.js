@@ -15,7 +15,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OTP_EXPIRY_MINUTES = 15;
 
 // POST /api/auth/login
-// Login Karyawan lewat app mobile, pakai NIP + password sementara yang
+// Login Pegawai lewat app mobile, pakai NIP + password sementara yang
 // diinput Admin di Website. Wajib ganti password saat pertama kali login.
 const login = async (req, res) => {
   const { nip, password } = req.body;
@@ -61,22 +61,22 @@ const login = async (req, res) => {
   user.last_login_at = new Date();
   await user.save();
 
-  const payload = { id: user.id, actorType: ROLES.KARYAWAN, nip: user.nip };
+  const payload = { id: user.id, actorType: ROLES.PEGAWAI, nip: user.nip };
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
 
-  await logActivity(req, "LOGIN", `${user.name} (karyawan) berhasil login`, {
+  await logActivity(req, "LOGIN", `${user.name} (pegawai) berhasil login`, {
     userId: user.id,
   });
 
   return success(res, {
     message: "Login berhasil.",
     data: {
-      user: { ...user.toSafeJSON(), role: ROLES.KARYAWAN },
+      user: { ...user.toSafeJSON(), role: ROLES.PEGAWAI },
       accessToken,
       refreshToken,
       mustChangePassword: user.is_first_login,
-      // Email pemulihan wajib dimiliki setiap akun karyawan. Kalau belum
+      // Email pemulihan wajib dimiliki setiap akun pegawai. Kalau belum
       // ada (mis. akun lama dari sebelum fitur ini ada, atau is_first_login
       // sudah false tapi entah kenapa email tetap kosong), mobile app akan
       // mengarahkan ke layar "Lengkapi Email" yang tidak bisa dilewati.
@@ -194,7 +194,7 @@ const refreshToken = async (req, res) => {
     if (!user || user.status !== "active") {
       return failure(res, { statusCode: 401, message: "Sesi tidak valid." });
     }
-    const payload = { id: user.id, actorType: ROLES.KARYAWAN, nip: user.nip };
+    const payload = { id: user.id, actorType: ROLES.PEGAWAI, nip: user.nip };
     return success(res, {
       message: "Token berhasil diperbarui.",
       data: { accessToken: signAccessToken(payload) },
@@ -208,7 +208,7 @@ const refreshToken = async (req, res) => {
 };
 
 // POST /api/auth/change-password
-// Dipakai untuk mekanisme wajib ganti password pada login pertama karyawan
+// Dipakai untuk mekanisme wajib ganti password pada login pertama pegawai
 // (sekaligus mengumpulkan email untuk verifikasi lupa password di kemudian
 // hari), maupun ganti password mandiri oleh Admin/Pimpinan yang sudah login.
 const changePassword = async (req, res) => {
@@ -221,8 +221,8 @@ const changePassword = async (req, res) => {
     });
   }
 
-  const isKaryawan = req.actorType === ROLES.KARYAWAN;
-  const account = isKaryawan
+  const isPegawai = req.actorType === ROLES.PEGAWAI;
+  const account = isPegawai
     ? await User.findByPk(req.user.id)
     : await AdminAccount.findByPk(req.user.id);
 
@@ -241,10 +241,10 @@ const changePassword = async (req, res) => {
     });
   }
 
-  // Email pemulihan WAJIB dimiliki setiap akun karyawan. Kalau request ini
+  // Email pemulihan WAJIB dimiliki setiap akun pegawai. Kalau request ini
   // menyertakan email baru, pakai itu; kalau tidak, akun harus sudah
   // punya email tercatat sebelumnya — kalau dua-duanya kosong, tolak.
-  if (isKaryawan) {
+  if (isPegawai) {
     const nextEmail =
       email !== undefined && email !== null && email !== ""
         ? email
@@ -276,20 +276,20 @@ const changePassword = async (req, res) => {
 
   return success(res, {
     message: "Password berhasil diperbarui.",
-    data: { email: isKaryawan ? account.email : undefined },
+    data: { email: isPegawai ? account.email : undefined },
   });
 };
 
 // POST /api/auth/email
 // Melengkapi/memperbarui email pemulihan TANPA mengganti password.
-// Dipakai untuk karyawan yang is_first_login-nya sudah false (jadi tidak
+// Dipakai untuk pegawai yang is_first_login-nya sudah false (jadi tidak
 // lagi melewati layar ganti password) tapi akunnya masih belum punya email
 // tercatat — misalnya akun lama dari sebelum fitur ini ditambahkan.
 const updateEmail = async (req, res) => {
-  if (req.actorType !== ROLES.KARYAWAN) {
+  if (req.actorType !== ROLES.PEGAWAI) {
     return failure(res, {
       statusCode: 403,
-      message: "Hanya akun karyawan yang memerlukan email pemulihan.",
+      message: "Hanya akun pegawai yang memerlukan email pemulihan.",
     });
   }
 
@@ -311,7 +311,7 @@ const updateEmail = async (req, res) => {
   await logActivity(
     req,
     "UPDATE_EMAIL",
-    "Karyawan memperbarui email pemulihan password",
+    "Pegawai memperbarui email pemulihan password",
   );
 
   return success(res, {
@@ -322,7 +322,7 @@ const updateEmail = async (req, res) => {
 
 // POST /api/auth/forgot-password
 // Langkah 1 dari alur "Lupa Password" di mobile app (belum login sama
-// sekali, jadi tidak lewat middleware authenticate). Karyawan mengirim NIP,
+// sekali, jadi tidak lewat middleware authenticate). Pegawai mengirim NIP,
 // backend mengirim kode OTP 6 digit ke email pemulihan yang tercatat.
 //
 // Balasan SENGAJA dibuat generik (selalu "sukses") baik NIP ditemukan atau
@@ -363,7 +363,7 @@ const forgotPassword = async (req, res) => {
   } catch (err) {
     console.error("[ForgotPassword] Gagal mengirim email:", err.message);
     // Batalkan OTP yang sudah dibuat kalau emailnya gagal terkirim, supaya
-    // tidak ada kode OTP "aktif" yang tidak pernah sampai ke karyawan.
+    // tidak ada kode OTP "aktif" yang tidak pernah sampai ke pegawai.
     user.reset_password_otp = null;
     user.reset_password_expires = null;
     await user.save();
@@ -387,7 +387,7 @@ const forgotPassword = async (req, res) => {
 };
 
 // POST /api/auth/reset-password
-// Langkah 2: karyawan mengirim NIP + kode OTP dari email + password baru.
+// Langkah 2: pegawai mengirim NIP + kode OTP dari email + password baru.
 const resetPassword = async (req, res) => {
   const { nip, otp, newPassword } = req.body;
 
@@ -452,7 +452,7 @@ const resetPassword = async (req, res) => {
 // Wajib konfirmasi password supaya sesi yang dibajak tidak bisa mengganti
 // username, dan username baru harus unik di tabel admin_accounts.
 const changeUsername = async (req, res) => {
-  if (req.actorType === ROLES.KARYAWAN) {
+  if (req.actorType === ROLES.PEGAWAI) {
     return failure(res, {
       statusCode: 403,
       message: "Ganti username hanya untuk akun Admin/Pimpinan.",
@@ -532,8 +532,8 @@ const changeUsername = async (req, res) => {
 
 // GET /api/auth/me
 const me = async (req, res) => {
-  const isKaryawan = req.actorType === ROLES.KARYAWAN;
-  const account = isKaryawan
+  const isPegawai = req.actorType === ROLES.PEGAWAI;
+  const account = isPegawai
     ? await User.findByPk(req.user.id)
     : await AdminAccount.findByPk(req.user.id);
 
@@ -545,7 +545,7 @@ const me = async (req, res) => {
   }
   const safe = account.toSafeJSON();
   return success(res, {
-    data: isKaryawan ? { ...safe, role: ROLES.KARYAWAN } : safe,
+    data: isPegawai ? { ...safe, role: ROLES.PEGAWAI } : safe,
   });
 };
 

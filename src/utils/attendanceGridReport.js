@@ -19,7 +19,7 @@ function applyThinBorder(cell) {
 }
 
 /**
- * Menulis satu blok grid absensi (judul + header tanggal + baris karyawan)
+ * Menulis satu blok grid absensi (judul + header tanggal + baris pegawai)
  * ke worksheet, dimulai dari `startRow`. Dipakai berulang untuk laporan
  * tahunan (satu blok per bulan, digabung dalam satu sheet).
  *
@@ -105,7 +105,7 @@ function writeBlock(
     }
   }
 
-  // === Baris data karyawan ===
+  // === Baris data pegawai ===
   const firstDataRow = headerRow2 + 1;
 
   employees.forEach((emp, empIdx) => {
@@ -209,7 +209,7 @@ function writeBlock(
 
   const lastDataRow = firstDataRow + employees.length - 1;
 
-  // === Kolom Minggu/Libur - merge vertikal lintas seluruh baris karyawan ===
+  // === Kolom Minggu/Libur - merge vertikal lintas seluruh baris pegawai ===
   if (employees.length > 0) {
     dateList.forEach((dateStr, idx) => {
       const col = firstDayCol + idx;
@@ -302,7 +302,7 @@ async function buildAttendanceGridWorkbook({ start, end, userId, periodType }) {
     sheet.getCell(2, 1).value =
       cellMode === "status"
         ? "H = Hadir, P = Piket, I = Izin, S = Sakit, C = Cuti, - = Tidak Absen (Alpa)"
-        : "Sel kosong berarti karyawan tidak memiliki catatan pada tanggal tersebut (libur, alpa, atau izin/cuti).";
+        : "Sel kosong berarti pegawai tidak memiliki catatan pada tanggal tersebut (libur, alpa, atau izin/cuti).";
     sheet.getCell(2, 1).font = {
       italic: true,
       size: 9,

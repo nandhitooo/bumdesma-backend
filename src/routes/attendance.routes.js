@@ -6,9 +6,9 @@ const ctrl = require("../controllers/attendance.controller");
 
 router.use(authenticate);
 
-// Karyawan - scan QR untuk absen masuk/pulang (mobile app)
-router.post("/scan", authorize(ROLES.KARYAWAN), asyncHandler(ctrl.scan));
-router.get("/me", authorize(ROLES.KARYAWAN), asyncHandler(ctrl.myAttendance));
+// Pegawai - scan QR untuk absen masuk/pulang (mobile app)
+router.post("/scan", authorize(ROLES.PEGAWAI), asyncHandler(ctrl.scan));
+router.get("/me", authorize(ROLES.PEGAWAI), asyncHandler(ctrl.myAttendance));
 
 // Admin & Pimpinan - monitoring
 router.get(

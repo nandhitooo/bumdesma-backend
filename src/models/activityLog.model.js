@@ -18,7 +18,7 @@ ActivityLog.init(
     user_id: {
       type: DataTypes.UUID,
       allowNull: true,
-      comment: 'Diisi jika aktor adalah karyawan',
+      comment: 'Diisi jika aktor adalah pegawai',
     },
     admin_id: {
       type: DataTypes.UUID,
@@ -26,7 +26,7 @@ ActivityLog.init(
       comment: 'Diisi jika aktor adalah Admin/Pimpinan',
     },
     actor_type: {
-      type: DataTypes.ENUM('karyawan', 'admin', 'pimpinan'),
+      type: DataTypes.ENUM('pegawai', 'admin', 'pimpinan'),
       allowNull: true,
     },
     action: {

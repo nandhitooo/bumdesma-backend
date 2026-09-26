@@ -2,8 +2,8 @@ const { DataTypes, Model } = require("sequelize");
 const sequelize = require("../config/database");
 const { USER_STATUS } = require("../utils/constants");
 
-/// Akun Karyawan. Login pakai NIP + password sementara dari Admin, wajib
-/// ganti password saat pertama kali login (Flow Karyawan). Akun Admin &
+/// Akun Pegawai. Login pakai NIP + password sementara dari Admin, wajib
+/// ganti password saat pertama kali login (Flow Pegawai). Akun Admin &
 /// Pimpinan ada di model terpisah, lihat `admin_account.model.js`.
 class User extends Model {
   static associate(models) {
@@ -58,7 +58,7 @@ User.init(
       type: DataTypes.STRING(150),
       allowNull: true,
       comment:
-        "Diisi karyawan saat wajib ganti password pertama kali, untuk verifikasi lupa password",
+        "Diisi pegawai saat wajib ganti password pertama kali, untuk verifikasi lupa password",
     },
     password: {
       type: DataTypes.STRING,
@@ -81,7 +81,7 @@ User.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
-      comment: "True jika karyawan masih memakai password sementara dari Admin",
+      comment: "True jika pegawai masih memakai password sementara dari Admin",
     },
     last_login_at: {
       type: DataTypes.DATE,

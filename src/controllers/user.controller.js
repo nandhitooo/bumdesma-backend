@@ -6,7 +6,7 @@ const { logActivity } = require('../utils/activityLogger');
 const { USER_STATUS } = require('../utils/constants');
 
 // GET /api/users?status=&search=&page=&limit=
-// Selalu daftar karyawan (tabel users) - akun Admin/Pimpinan ada di
+// Selalu daftar pegawai (tabel users) - akun Admin/Pimpinan ada di
 // admin_accounts, tidak dikelola lewat endpoint ini.
 const getAll = async (req, res) => {
   const { status, search, page = 1, limit = 20 } = req.query;
@@ -37,11 +37,11 @@ const getAll = async (req, res) => {
 // GET /api/users/:id
 const getById = async (req, res) => {
   const user = await User.findByPk(req.params.id, { attributes: { exclude: ['password'] } });
-  if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+  if (!user) return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
   return success(res, { data: user });
 };
 
-// POST /api/users  (Admin menambah karyawan baru + password sementara)
+// POST /api/users  (Admin menambah pegawai baru + password sementara)
 const create = async (req, res) => {
   const { nip, name, jabatan, phone, temporaryPassword } = req.body;
 
@@ -67,11 +67,11 @@ const create = async (req, res) => {
     is_first_login: true,
   });
 
-  await logActivity(req, 'CREATE_USER', `Admin menambahkan karyawan baru: ${name} (${nip})`);
+  await logActivity(req, 'CREATE_USER', `Admin menambahkan pegawai baru: ${name} (${nip})`);
 
   return success(res, {
     statusCode: 201,
-    message: 'Karyawan berhasil ditambahkan.',
+    message: 'Pegawai berhasil ditambahkan.',
     data: user.toSafeJSON(),
   });
 };
@@ -79,7 +79,7 @@ const create = async (req, res) => {
 // PUT /api/users/:id
 const update = async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+  if (!user) return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
 
   const { name, jabatan, phone } = req.body;
   if (name !== undefined) user.name = name;
@@ -87,9 +87,9 @@ const update = async (req, res) => {
   if (phone !== undefined) user.phone = phone;
 
   await user.save();
-  await logActivity(req, 'UPDATE_USER', `Admin memperbarui data karyawan: ${user.name}`);
+  await logActivity(req, 'UPDATE_USER', `Admin memperbarui data pegawai: ${user.name}`);
 
-  return success(res, { message: 'Data karyawan berhasil diperbarui.', data: user.toSafeJSON() });
+  return success(res, { message: 'Data pegawai berhasil diperbarui.', data: user.toSafeJSON() });
 };
 
 // PATCH /api/users/:id/status  (aktif / nonaktif)
@@ -100,14 +100,14 @@ const setStatus = async (req, res) => {
   }
 
   const user = await User.findByPk(req.params.id);
-  if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+  if (!user) return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
 
   user.status = status;
   await user.save();
 
-  await logActivity(req, 'SET_USER_STATUS', `Status karyawan ${user.name} diubah menjadi ${status}`);
+  await logActivity(req, 'SET_USER_STATUS', `Status pegawai ${user.name} diubah menjadi ${status}`);
 
-  return success(res, { message: 'Status karyawan berhasil diperbarui.', data: user.toSafeJSON() });
+  return success(res, { message: 'Status pegawai berhasil diperbarui.', data: user.toSafeJSON() });
 };
 
 // POST /api/users/:id/reset-password  (Admin mengatur ulang password sementara)
@@ -118,26 +118,26 @@ const resetPassword = async (req, res) => {
   }
 
   const user = await User.findByPk(req.params.id);
-  if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+  if (!user) return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
 
   user.password = await bcrypt.hash(temporaryPassword, 10);
   user.is_first_login = true;
   await user.save();
 
-  await logActivity(req, 'RESET_PASSWORD', `Admin mereset password karyawan: ${user.name}`);
+  await logActivity(req, 'RESET_PASSWORD', `Admin mereset password pegawai: ${user.name}`);
 
-  return success(res, { message: 'Password karyawan berhasil direset.' });
+  return success(res, { message: 'Password pegawai berhasil direset.' });
 };
 
 // DELETE /api/users/:id (soft delete)
 const remove = async (req, res) => {
   const user = await User.findByPk(req.params.id);
-  if (!user) return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+  if (!user) return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
 
   await user.destroy(); // paranoid: true -> soft delete
-  await logActivity(req, 'DELETE_USER', `Admin menghapus data karyawan: ${user.name}`);
+  await logActivity(req, 'DELETE_USER', `Admin menghapus data pegawai: ${user.name}`);
 
-  return success(res, { message: 'Karyawan berhasil dihapus.' });
+  return success(res, { message: 'Pegawai berhasil dihapus.' });
 };
 
 module.exports = { getAll, getById, create, update, setStatus, resetPassword, remove };

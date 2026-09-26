@@ -92,7 +92,7 @@ Attendance.init(
     modelName: 'Attendance',
     tableName: 'attendances',
     indexes: [
-      { unique: true, fields: ['user_id', 'tanggal'] }, // satu record per karyawan per hari
+      { unique: true, fields: ['user_id', 'tanggal'] }, // satu record per pegawai per hari
     ],
   }
 );

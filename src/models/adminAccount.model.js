@@ -3,7 +3,7 @@ const sequelize = require('../config/database');
 const { USER_STATUS } = require('../utils/constants');
 
 // Tabel `admin_accounts` khusus menyimpan akun Admin & Pimpinan (website),
-// terpisah dari tabel `users` yang hanya berisi data Karyawan.
+// terpisah dari tabel `users` yang hanya berisi data Pegawai.
 const ADMIN_ROLES = Object.freeze({
   ADMIN: 'admin',
   PIMPINAN: 'pimpinan',
@@ -36,7 +36,7 @@ AdminAccount.init(
       type: DataTypes.STRING(50),
       allowNull: false,
       unique: true,
-      comment: 'Dipakai sebagai username login Admin/Pimpinan (bukan NIP karyawan)',
+      comment: 'Dipakai sebagai username login Admin/Pimpinan (bukan NIP pegawai)',
     },
     name: {
       type: DataTypes.STRING(150),

@@ -52,9 +52,9 @@ function isNationalHoliday(dateOnlyStr, holidays) {
 }
 
 /**
- * Menentukan jadwal kerja yang berlaku untuk seorang karyawan pada tanggal tertentu.
+ * Menentukan jadwal kerja yang berlaku untuk seorang pegawai pada tanggal tertentu.
  * Senin-Jumat -> jadwal reguler.
- * Sabtu -> hanya berlaku jika karyawan terdaftar di piket_schedules pada tanggal itu.
+ * Sabtu -> hanya berlaku jika pegawai terdaftar di piket_schedules pada tanggal itu.
  * Minggu -> tidak ada jadwal (bukan hari kerja).
  */
 async function resolveScheduleForUser(userId, dateOnlyStr) {
@@ -159,7 +159,7 @@ const scan = async (req, res) => {
     });
   }
 
-  // Karyawan sedang izin/cuti disetujui pada tanggal ini -> tutup akses scan
+  // Pegawai sedang izin/cuti disetujui pada tanggal ini -> tutup akses scan
   const approvedLeave = await Leave.findOne({
     where: {
       user_id: userId,
@@ -293,9 +293,9 @@ const scan = async (req, res) => {
   });
 };
 
-// POST /api/attendance  (Admin - membuat data absensi manual untuk karyawan
+// POST /api/attendance  (Admin - membuat data absensi manual untuk pegawai
 // yang belum memiliki catatan absensi pada tanggal tersebut, mis. karena
-// error di aplikasi mobile atau karyawan lupa scan)
+// error di aplikasi mobile atau pegawai lupa scan)
 // Body: { userId, tanggal, jam_masuk, jam_pulang, status, checkout_status, notes }
 const createManual = async (req, res) => {
   const {
@@ -322,7 +322,7 @@ const createManual = async (req, res) => {
     return failure(res, {
       statusCode: 409,
       message:
-        "Data absensi untuk karyawan dan tanggal ini sudah ada. Gunakan PUT /api/attendance/:id untuk mengoreksinya.",
+        "Data absensi untuk pegawai dan tanggal ini sudah ada. Gunakan PUT /api/attendance/:id untuk mengoreksinya.",
     });
   }
 
@@ -341,7 +341,7 @@ const createManual = async (req, res) => {
   await logActivity(
     req,
     "KOREKSI_ABSENSI",
-    `Admin membuat data absensi manual untuk karyawan ID ${userId} pada ${tanggal}`,
+    `Admin membuat data absensi manual untuk pegawai ID ${userId} pada ${tanggal}`,
   );
 
   return success(res, {
@@ -373,7 +373,7 @@ const myAttendance = async (req, res) => {
 };
 
 // GET /api/attendance?tanggal=&user_id=&status=&page=&limit=
-// Untuk Admin & Pimpinan memantau kehadiran seluruh karyawan
+// Untuk Admin & Pimpinan memantau kehadiran seluruh pegawai
 const getAll = async (req, res) => {
   const {
     tanggal,
@@ -416,8 +416,8 @@ const getAll = async (req, res) => {
 const dashboardSummary = async (req, res) => {
   const tanggal = req.query.tanggal || todayDateOnly();
 
-  const totalKaryawan = await User.count({
-    where: { role: "karyawan", status: "active" },
+  const totalPegawai = await User.count({
+    where: { role: "pegawai", status: "active" },
   });
   const records = await Attendance.findAll({ where: { tanggal } });
 
@@ -431,12 +431,12 @@ const dashboardSummary = async (req, res) => {
   const lembur = records.filter(
     (r) => r.checkout_status === CHECKOUT_STATUS.LEMBUR,
   ).length;
-  const belumAbsen = Math.max(totalKaryawan - records.length, 0);
+  const belumAbsen = Math.max(totalPegawai - records.length, 0);
 
   return success(res, {
     data: {
       tanggal,
-      totalKaryawan,
+      totalPegawai,
       hadir,
       terlambat,
       izinCuti,

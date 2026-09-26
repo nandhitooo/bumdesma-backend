@@ -23,7 +23,7 @@ const unreadCount = async (req, res) => {
 };
 
 // POST /api/notifications/read-all
-// Dipanggil saat karyawan membuka panel notifikasi.
+// Dipanggil saat pegawai membuka panel notifikasi.
 const markAllRead = async (req, res) => {
   await Notification.update(
     { is_read: true },

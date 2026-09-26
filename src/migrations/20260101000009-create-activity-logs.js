@@ -14,7 +14,7 @@ module.exports = {
         references: { model: 'users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
-        comment: 'Terisi jika aksi dilakukan oleh karyawan (tabel users)',
+        comment: 'Terisi jika aksi dilakukan oleh pegawai (tabel users)',
       },
       admin_account_id: {
         type: Sequelize.UUID,

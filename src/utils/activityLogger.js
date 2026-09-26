@@ -6,7 +6,7 @@ const { ROLES } = require('./constants');
  * Dipanggil "fire-and-forget" - kegagalan pencatatan log tidak boleh
  * menggagalkan request utama.
  *
- * Aktor ditentukan otomatis dari req.user/req.actorType (karyawan -> user_id,
+ * Aktor ditentukan otomatis dari req.user/req.actorType (pegawai -> user_id,
  * admin/pimpinan -> admin_id). Untuk kasus sebelum autentikasi berhasil
  * (mis. percobaan login gagal), aktor bisa dioverride lewat parameter
  * `override`: { userId } atau { adminId }.
@@ -18,13 +18,13 @@ async function logActivity(req, action, description = null, override = null) {
     let adminId = override?.adminId ?? null;
 
     if (!override) {
-      if (actorType === ROLES.KARYAWAN) {
+      if (actorType === ROLES.PEGAWAI) {
         userId = req?.user?.id || null;
       } else if (actorType) {
         adminId = req?.user?.id || null;
       }
     } else {
-      actorType = userId ? ROLES.KARYAWAN : override?.adminId ? 'admin' : actorType;
+      actorType = userId ? ROLES.PEGAWAI : override?.adminId ? 'admin' : actorType;
     }
 
     await ActivityLog.create({

@@ -7,7 +7,7 @@ const ctrl = require('../controllers/piket.controller');
 router.use(authenticate);
 
 router.get('/', authorize(ROLES.ADMIN, ROLES.PIMPINAN), asyncHandler(ctrl.getAll));
-router.get('/me', authorize(ROLES.KARYAWAN), asyncHandler(ctrl.myPiket));
+router.get('/me', authorize(ROLES.PEGAWAI), asyncHandler(ctrl.myPiket));
 router.post('/', authorize(ROLES.ADMIN), asyncHandler(ctrl.assign));
 router.post('/:id/notify', authorize(ROLES.ADMIN), asyncHandler(ctrl.notify));
 router.delete('/:id', authorize(ROLES.ADMIN), asyncHandler(ctrl.remove));

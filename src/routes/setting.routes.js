@@ -8,7 +8,7 @@ router.use(authenticate);
 
 router.get(
   "/",
-  authorize(ROLES.ADMIN, ROLES.PIMPINAN, ROLES.KARYAWAN),
+  authorize(ROLES.ADMIN, ROLES.PIMPINAN, ROLES.PEGAWAI),
   asyncHandler(ctrl.getSettings),
 );
 router.put("/", authorize(ROLES.ADMIN), asyncHandler(ctrl.updateSettings));

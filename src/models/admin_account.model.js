@@ -3,7 +3,7 @@ const sequelize = require('../config/database');
 const { ADMIN_ROLES, USER_STATUS } = require('../utils/constants');
 
 /// Akun Admin & Pimpinan. Login pakai username + password di Website
-/// (terpisah dari akun Karyawan di tabel `users`, yang login pakai NIP di
+/// (terpisah dari akun Pegawai di tabel `users`, yang login pakai NIP di
 /// app mobile).
 class AdminAccount extends Model {
   static associate(models) {

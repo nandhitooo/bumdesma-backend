@@ -7,7 +7,7 @@ const { NOTIFICATION_TYPE } = require('../utils/constants');
 
 // GET /api/piket?start=&end=&search=&page=&limit=
 // `start`/`end` membatasi rentang tanggal (dipakai halaman Admin per hari).
-// `search` menyaring nama karyawan (case-insensitive). Pagination opsional:
+// `search` menyaring nama pegawai (case-insensitive). Pagination opsional:
 // tanpa `page`/`limit` (mobile app) seluruh baris dikembalikan tanpa meta,
 // jadi perilaku lama & app mobile tidak berubah.
 const getAll = async (req, res) => {
@@ -62,7 +62,7 @@ const myPiket = async (req, res) => {
   return success(res, { data: rows });
 };
 
-// POST /api/piket  (Admin assign - bisa banyak karyawan sekaligus)
+// POST /api/piket  (Admin assign - bisa banyak pegawai sekaligus)
 // Body: { tanggal, userIds: [] }
 const assign = async (req, res) => {
   const { tanggal, userIds } = req.body;
@@ -91,19 +91,19 @@ const assign = async (req, res) => {
   await logActivity(
     req,
     'ASSIGN_PIKET',
-    `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${userIds.length} karyawan`
+    `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${userIds.length} pegawai`
   );
 
   return success(res, {
     statusCode: 201,
     message:
-      'Jadwal piket berhasil ditetapkan. Tekan "Kirim Notifikasi" untuk memberi tahu karyawan di app mobile.',
+      'Jadwal piket berhasil ditetapkan. Tekan "Kirim Notifikasi" untuk memberi tahu pegawai di app mobile.',
     data: created,
   });
 };
 
 // POST /api/piket/:id/notify  (Admin - tombol "Kirim Notifikasi")
-// Membuat notifikasi in-app untuk karyawan bersangkutan dan menandai
+// Membuat notifikasi in-app untuk pegawai bersangkutan dan menandai
 // notification_sent = true. Ini yang membuat badge lonceng di Dashboard
 // mobile menyala dan mengisi panel notifikasi (Gambar 3.24).
 const notify = async (req, res) => {
@@ -141,7 +141,7 @@ const notify = async (req, res) => {
   );
 
   return success(res, {
-    message: `Notifikasi piket berhasil dikirim ke ${row.user?.name ?? 'karyawan'}.`,
+    message: `Notifikasi piket berhasil dikirim ke ${row.user?.name ?? 'pegawai'}.`,
     data: row,
   });
 };

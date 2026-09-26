@@ -33,7 +33,7 @@ function removeUploadedFileIfAny(req) {
   }
 }
 
-// POST /api/leaves  (Karyawan mengajukan izin/cuti dari mobile, multipart dengan file lampiran)
+// POST /api/leaves  (Pegawai mengajukan izin/cuti dari mobile, multipart dengan file lampiran)
 const create = async (req, res) => {
   const { jenis, tanggal_mulai, tanggal_selesai, alasan } = req.body;
 
@@ -110,7 +110,7 @@ const getAll = async (req, res) => {
   const where = {};
   if (status) where.status = status;
   if (user_id) where.user_id = user_id;
-  // Pencarian nama karyawan (case-insensitive) via relasi `user`
+  // Pencarian nama pegawai (case-insensitive) via relasi `user`
   const userWhere = search ? { name: { [Op.iLike]: `%${search}%` } } : undefined;
 
   // Pimpinan hanya perlu melihat pengajuan yang sudah ditinjau Admin ke atas
@@ -232,7 +232,7 @@ const decide = async (req, res) => {
     }
   }
 
-  // Kirim notifikasi in-app ke karyawan (muncul di panel lonceng Dashboard mobile).
+  // Kirim notifikasi in-app ke pegawai (muncul di panel lonceng Dashboard mobile).
   const periode = `${leave.tanggal_mulai} s/d ${leave.tanggal_selesai}`;
   await notifyUser({
     userId: leave.user_id,
@@ -258,7 +258,7 @@ const decide = async (req, res) => {
   );
 
   return success(res, {
-    message: `Pengajuan izin/cuti telah ${decision === "approved" ? "disetujui" : "ditolak"} dan notifikasi terkirim ke karyawan.`,
+    message: `Pengajuan izin/cuti telah ${decision === "approved" ? "disetujui" : "ditolak"} dan notifikasi terkirim ke pegawai.`,
     data: leave,
   });
 };

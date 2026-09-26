@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const { PushToken, User } = require('../models');
 
 /**
- * Push notification FCM ke notif bar HP karyawan.
+ * Push notification FCM ke notif bar HP pegawai.
  *
  * Inisialisasi firebase-admin dibungkus try/catch: kalau kredensial service
  * account belum di-setup (mis. laptop dev tanpa GOOGLE_APPLICATION_CREDENTIALS),
@@ -37,7 +37,7 @@ const TYPE_TO_CHANNEL = {
 };
 
 /**
- * Kirim push FCM ke seluruh perangkat milik satu karyawan (by user id),
+ * Kirim push FCM ke seluruh perangkat milik satu pegawai (by user id),
  * lalu bersihkan token yang sudah tidak valid (app diuninstall dsb).
  *
  * @param {string} userId - UUID user penerima (tabel users.id)

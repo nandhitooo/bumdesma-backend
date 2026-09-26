@@ -20,7 +20,7 @@ module.exports = {
       email: {
         type: Sequelize.STRING(150),
         allowNull: true,
-        comment: 'Diisi karyawan saat wajib ganti password pertama kali, untuk verifikasi lupa password',
+        comment: 'Diisi pegawai saat wajib ganti password pertama kali, untuk verifikasi lupa password',
       },
       password: {
         type: Sequelize.STRING,

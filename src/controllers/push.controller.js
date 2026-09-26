@@ -9,7 +9,7 @@ const { PushToken, User } = require('../models');
  *
  * NOTE: `nip` di body dipakai sebagai verifikasi silang saja — identitas
  * yang dipercaya adalah req.user dari JWT (lihat auth.middleware.js), dan
- * karyawan hanya boleh mendaftarkan token untuk dirinya sendiri.
+ * pegawai hanya boleh mendaftarkan token untuk dirinya sendiri.
  */
 const register = async (req, res) => {
   const { nip, token, platform } = req.body || {};
@@ -20,7 +20,7 @@ const register = async (req, res) => {
 
   const user = await User.findOne({ where: { nip: nip || req.user.nip } });
   if (!user) {
-    return failure(res, { statusCode: 404, message: 'Karyawan tidak ditemukan.' });
+    return failure(res, { statusCode: 404, message: 'Pegawai tidak ditemukan.' });
   }
   if (req.user.nip !== user.nip) {
     return failure(res, {

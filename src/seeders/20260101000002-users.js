@@ -2,7 +2,7 @@
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcryptjs");
 
-// Data contoh Karyawan (tabel `users`). Akun Admin & Pimpinan sekarang ada
+// Data contoh Pegawai (tabel `users`). Akun Admin & Pimpinan sekarang ada
 // di seeder terpisah, lihat 20260101000003-admin-accounts.js.
 module.exports = {
   up: async (queryInterface) => {
@@ -13,8 +13,8 @@ module.exports = {
       {
         id: uuidv4(),
         nip: "KAR001",
-        name: "Contoh Karyawan",
-        password: hash("Karyawan@123"),
+        name: "Contoh Pegawai",
+        password: hash("Pegawai@123"),
         jabatan: "Staff Operasional",
         status: "active",
         is_first_login: true, // wajib ganti password saat login pertama

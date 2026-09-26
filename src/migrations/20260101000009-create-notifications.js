@@ -11,7 +11,7 @@ module.exports = {
       user_id: {
         type: Sequelize.UUID,
         allowNull: false,
-        comment: 'Penerima notifikasi (karyawan)',
+        comment: 'Penerima notifikasi (pegawai)',
         references: { model: 'users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',

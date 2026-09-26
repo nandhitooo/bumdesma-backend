@@ -40,7 +40,7 @@ Leave.init(
     file_lampiran: {
       type: DataTypes.STRING,
       allowNull: true,
-      comment: 'Path file surat pendukung yang diunggah karyawan',
+      comment: 'Path file surat pendukung yang diunggah pegawai',
     },
     status: {
       type: DataTypes.ENUM(...Object.values(LEAVE_STATUS)),

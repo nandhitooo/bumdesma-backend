@@ -6,7 +6,7 @@ module.exports = {
 
     if (!table.actor_type) {
       await queryInterface.addColumn("activity_logs", "actor_type", {
-        type: Sequelize.ENUM("karyawan", "admin", "pimpinan"),
+        type: Sequelize.ENUM("pegawai", "admin", "pimpinan"),
         allowNull: true,
       });
     }

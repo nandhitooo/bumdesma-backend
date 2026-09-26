@@ -47,7 +47,7 @@ router.use('/backup', require('./backup.routes'));
 router.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Sistem Manajemen Absensi Karyawan Berbasis QR Code - BUMDESMA Podo Rukun LKD API',
+    message: 'Sistem Manajemen Absensi Pegawai Berbasis QR Code - BUMDESMA Podo Rukun LKD API',
     version: '1.0.0',
   });
 });

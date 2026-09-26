@@ -1,9 +1,9 @@
-# Backend – Sistem Manajemen Absensi Karyawan Berbasis QR Code
+# Backend – Sistem Manajemen Absensi Pegawai Berbasis QR Code
 ### BUMDESMA Podo Rukun LKD
 
-REST API untuk sistem absensi karyawan berbasis QR Code statis dengan validasi
+REST API untuk sistem absensi pegawai berbasis QR Code statis dengan validasi
 geofencing. Melayani dua klien: **Website Admin/Pimpinan** (React) dan
-**Aplikasi Mobile Karyawan** (Flutter), masing-masing lewat HTTP/JSON.
+**Aplikasi Mobile Pegawai** (Flutter), masing-masing lewat HTTP/JSON.
 
 ## Stack Teknologi
 
@@ -22,9 +22,9 @@ geofencing. Melayani dua klien: **Website Admin/Pimpinan** (React) dan
 Sistem ini **tidak** memakai satu tabel `users` dengan kolom `role` untuk
 ketiga aktor. Sebagai gantinya:
 
-- **`users`** — Karyawan saja. Login pakai **NIP + password** dari app
+- **`users`** — Pegawai saja. Login pakai **NIP + password** dari app
   mobile. Password awal adalah password sementara yang diinput Admin;
-  karyawan **wajib ganti password** saat pertama kali login, dan bisa
+  pegawai **wajib ganti password** saat pertama kali login, dan bisa
   sekalian mengisi email (opsional) untuk verifikasi jika suatu saat lupa
   password.
 - **`admin_accounts`** — Admin & Pimpinan. Login pakai **username +
@@ -39,7 +39,7 @@ Konsekuensinya, kolom-kolom yang mencatat *siapa melakukan suatu aksi admin*
 ## Arsitektur
 
 Mengikuti *API-Driven Architecture* dengan pola *Client-Server* terpisah:
-Aplikasi Mobile Karyawan (Flutter) dan Website Admin/Pimpinan (React) sama-sama
+Aplikasi Mobile Pegawai (Flutter) dan Website Admin/Pimpinan (React) sama-sama
 mengonsumsi REST API ini melalui HTTP/JSON.
 
 ## Struktur Folder
@@ -59,26 +59,26 @@ bumdesma-backend/
 │   └── utils/                   # JWT, geofencing, notifier, response, dsb
 └── uploads/
     ├── qrcode/                  # Gambar QR Code hasil generate
-    └── surat-izin/               # Lampiran surat izin/cuti karyawan
+    └── surat-izin/               # Lampiran surat izin/cuti pegawai
 ```
 
 ## Skema Database
 
-- **users** — data Karyawan (NIP, nama, password, jabatan, phone, email,
+- **users** — data Pegawai (NIP, nama, password, jabatan, phone, email,
   status, `is_first_login`)
 - **admin_accounts** — data Admin & Pimpinan (username, nama, password,
   role, status)
 - **work_schedules** — jadwal kerja reguler (Senin–Jumat) & piket (Sabtu)
 - **qr_codes** — token QR Code statis (hanya satu token aktif pada satu waktu)
-- **attendances** — riwayat presensi harian (1 baris per karyawan per tanggal)
+- **attendances** — riwayat presensi harian (1 baris per pegawai per tanggal)
 - **leaves** — pengajuan izin/cuti (alur: pending → diteruskan Admin → approved/rejected Pimpinan)
-- **piket_schedules** — penugasan piket Sabtu per karyawan, `notification_sent`
+- **piket_schedules** — penugasan piket Sabtu per pegawai, `notification_sent`
   jadi `true` hanya setelah Admin menekan tombol "Kirim Notifikasi"
-- **notifications** — notifikasi in-app untuk karyawan (jadwal piket,
+- **notifications** — notifikasi in-app untuk pegawai (jadwal piket,
   keputusan izin/cuti), ditampilkan di lonceng Dashboard app mobile
 - **system_settings** — parameter sistem (koordinat kantor, radius geofencing, hari libur)
 - **activity_logs** — audit trail seluruh aktivitas penting, mencatat aktor
-  karyawan (`user_id`) maupun admin/pimpinan (`admin_id` + `actor_type`)
+  pegawai (`user_id`) maupun admin/pimpinan (`admin_id` + `actor_type`)
 
 ## Instalasi & Menjalankan
 
@@ -122,7 +122,7 @@ perangkat lain di jaringan yang sama, pastikan `app.listen` mendengarkan di
 |---|---|---|---|
 | Admin | Website (username) | `admin` | `Admin@12345` |
 | Pimpinan | Website (username) | `pimpinan` | `Pimpinan@12345` |
-| Karyawan (contoh) | App mobile (NIP) | `KAR001` | `Karyawan@123` (wajib ganti password saat login pertama) |
+| Pegawai (contoh) | App mobile (NIP) | `KAR001` | `Pegawai@123` (wajib ganti password saat login pertama) |
 
 ## Ringkasan Endpoint API
 
@@ -131,14 +131,14 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 ### Auth
 | Method | Endpoint | Akses | Keterangan |
 |---|---|---|---|
-| POST | `/api/auth/login` | Publik | Karyawan, body `{ nip, password }` |
+| POST | `/api/auth/login` | Publik | Pegawai, body `{ nip, password }` |
 | POST | `/api/auth/admin-login` | Publik | Admin/Pimpinan, body `{ username, password }` |
 | POST | `/api/auth/refresh-token` | Publik | |
-| POST | `/api/auth/change-password` | Semua akun | body `{ oldPassword, newPassword, email? }` — `email` hanya dipakai untuk akun karyawan |
+| POST | `/api/auth/change-password` | Semua akun | body `{ oldPassword, newPassword, email? }` — `email` hanya dipakai untuk akun pegawai |
 | GET | `/api/auth/me` | Semua akun | |
 | POST | `/api/auth/logout` | Semua akun | |
 
-### Pegawai/Karyawan (`/api/users`) — Admin
+### Pegawai/Pegawai (`/api/users`) — Admin
 | Method | Endpoint |
 |---|---|
 | GET | `/` (query: status, search, page, limit) |
@@ -152,8 +152,8 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 ### Absensi (`/api/attendance`)
 | Method | Endpoint | Akses |
 |---|---|---|
-| POST | `/scan` | Karyawan (mobile) |
-| GET | `/me` | Karyawan |
+| POST | `/scan` | Pegawai (mobile) |
+| GET | `/me` | Pegawai |
 | GET | `/` (filter tanggal/user/status) | Admin, Pimpinan |
 | GET | `/dashboard-summary` | Admin, Pimpinan |
 | PUT | `/:id` (koreksi manual) | Admin |
@@ -161,8 +161,8 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 ### Izin/Cuti (`/api/leaves`)
 | Method | Endpoint | Akses |
 |---|---|---|
-| POST | `/` (multipart, field `file`) | Karyawan |
-| GET | `/me` | Karyawan |
+| POST | `/` (multipart, field `file`) | Pegawai |
+| GET | `/me` | Pegawai |
 | GET | `/` | Admin, Pimpinan |
 | PUT | `/:id/review` | Admin (meneruskan ke Pimpinan) |
 | PUT | `/:id/decision` | Pimpinan (approved/rejected) |
@@ -171,12 +171,12 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 | Method | Endpoint | Akses |
 |---|---|---|
 | GET | `/` | Admin, Pimpinan |
-| GET | `/me` | Karyawan |
+| GET | `/me` | Pegawai |
 | POST | `/` (body: tanggal, userIds[]) | Admin |
-| POST | `/:id/notify` | Admin — kirim notifikasi in-app ke karyawan bersangkutan |
+| POST | `/:id/notify` | Admin — kirim notifikasi in-app ke pegawai bersangkutan |
 | DELETE | `/:id` | Admin |
 
-### Notifikasi (`/api/notifications`) — karyawan (notifikasi milik sendiri)
+### Notifikasi (`/api/notifications`) — pegawai (notifikasi milik sendiri)
 | Method | Endpoint |
 |---|---|
 | GET | `/` |
@@ -206,7 +206,7 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 ## Logika Bisnis Utama
 
 **Scan QR (`POST /api/attendance/scan`)** — menjalankan 4 lapis validasi:
-1. **Layer 1 – Autentikasi**: token JWT karyawan (middleware `authenticate`).
+1. **Layer 1 – Autentikasi**: token JWT pegawai (middleware `authenticate`).
 2. **Layer 2 – Token QR**: memverifikasi token cocok dengan QR Code statis aktif.
 3. **Layer 3 – Geofencing**: Haversine formula, ditolak jika jarak > radius (default 50m).
 4. **Layer 4 – Jadwal**: Senin–Jumat pakai jadwal reguler; Sabtu hanya jika
@@ -215,7 +215,7 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
    tanpa check-out → **absen pulang** (status normal/lembur); jika sudah
    lengkap → ditolak.
 
-**Alur Izin/Cuti**: `pending` (diajukan karyawan) → `diteruskan` (ditinjau
+**Alur Izin/Cuti**: `pending` (diajukan pegawai) → `diteruskan` (ditinjau
 Admin) → `approved`/`rejected` (keputusan Pimpinan). Saat disetujui, sistem
 otomatis mengisi rekap harian berstatus **Izin/Cuti** pada rentang tanggal
 terkait sehingga akses scan ditutup untuk tanggal tersebut.
@@ -224,7 +224,7 @@ terkait sehingga akses scan ditutup untuk tanggal tersebut.
 mengirim notifikasi apapun) → Admin menekan tombol konfirmasi "Kirim
 Notifikasi" di Website, yang memanggil `POST /api/piket/:id/notify` → baris
 baru dibuat di `notifications` dan `piket_schedules.notification_sent`
-menjadi `true` → app mobile karyawan menampilkan badge merah di lonceng
+menjadi `true` → app mobile pegawai menampilkan badge merah di lonceng
 Dashboard saat polling `GET /api/notifications/unread-count`.
 
 **QR Code statis**: hanya satu token aktif pada satu waktu; generate/regenerasi
@@ -237,7 +237,7 @@ otomatis menonaktifkan token sebelumnya dan menghasilkan gambar PNG baru.
 - Soft delete pada tabel `users` dan `admin_accounts` (kolom `deleted_at`)
   agar riwayat presensi/aktivitas tetap terjaga walau akunnya dihapus.
 - `activity_logs` mencatat setiap aksi penting untuk kebutuhan audit trail,
-  baik dari karyawan maupun admin/pimpinan.
+  baik dari pegawai maupun admin/pimpinan.
 - Notifikasi saat ini bersifat **in-app** (disimpan di tabel `notifications`,
   diambil app lewat polling `GET /api/notifications*`) — bukan push
   notification native (FCM/APNs). Kalau butuh push notification asli saat
