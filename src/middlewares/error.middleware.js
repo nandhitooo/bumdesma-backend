@@ -25,9 +25,18 @@ function errorHandler(err, req, res, next) {
   }
 
   const statusCode = err.statusCode || 500;
+  const isServerError = statusCode >= 500;
+
   return failure(res, {
     statusCode,
-    message: err.message || 'Terjadi kesalahan pada server.',
+    // Pesan asli error server hanya boleh sampai ke client di luar production:
+    // err.message sering memuat detail internal (query SQL, nama kolom, path
+    // file, pesan driver database) yang berguna untuk penyerang. Detail
+    // lengkapnya tetap tercatat penuh di log server baris di atas.
+    message:
+      isServerError && process.env.NODE_ENV === 'production'
+        ? 'Terjadi kesalahan pada server.'
+        : err.message || 'Terjadi kesalahan pada server.',
   });
 }
 

@@ -10,6 +10,7 @@ const {
 const { success, failure } = require("../utils/response");
 const { checkGeofence } = require("../utils/geofencing");
 const { getSettingsMap } = require("../utils/settingsHelper");
+const { parsePagination } = require("../utils/pagination");
 const { logActivity } = require("../utils/activityLogger");
 const {
   ATTENDANCE_STATUS,
@@ -375,22 +376,14 @@ const myAttendance = async (req, res) => {
 // GET /api/attendance?tanggal=&user_id=&status=&page=&limit=
 // Untuk Admin & Pimpinan memantau kehadiran seluruh pegawai
 const getAll = async (req, res) => {
-  const {
-    tanggal,
-    start,
-    end,
-    user_id,
-    status,
-    page = 1,
-    limit = 50,
-  } = req.query;
+  const { tanggal, start, end, user_id, status } = req.query;
+  const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 50 });
   const where = {};
   if (tanggal) where.tanggal = tanggal;
   if (start && end) where.tanggal = { [Op.between]: [start, end] };
   if (user_id) where.user_id = user_id;
   if (status) where.status = status;
 
-  const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await Attendance.findAndCountAll({
     where,
     include: [
@@ -401,13 +394,13 @@ const getAll = async (req, res) => {
       ["tanggal", "DESC"],
       ["jam_masuk", "ASC"],
     ],
-    limit: Number(limit),
+    limit,
     offset,
   });
 
   return success(res, {
     data: rows,
-    meta: { total: count, page: Number(page), limit: Number(limit) },
+    meta: { total: count, page, limit },
   });
 };
 

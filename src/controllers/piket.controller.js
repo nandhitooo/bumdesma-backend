@@ -4,6 +4,7 @@ const { success, failure } = require('../utils/response');
 const { logActivity } = require('../utils/activityLogger');
 const { notifyUser } = require('../utils/notifier');
 const { NOTIFICATION_TYPE } = require('../utils/constants');
+const { parsePagination } = require('../utils/pagination');
 
 // GET /api/piket?start=&end=&search=&page=&limit=
 // `start`/`end` membatasi rentang tanggal (dipakai halaman Admin per hari).
@@ -34,12 +35,13 @@ const getAll = async (req, res) => {
   };
 
   if (page !== undefined || limit !== undefined) {
-    const currentPage = Math.max(Number(page) || 1, 1);
-    const perPage = Math.max(Number(limit) || 10, 1);
+    const { page: currentPage, limit: perPage, offset } = parsePagination(req.query, {
+      defaultLimit: 10,
+    });
     const { rows, count } = await PiketSchedule.findAndCountAll({
       ...options,
       limit: perPage,
-      offset: (currentPage - 1) * perPage,
+      offset,
       distinct: true,
     });
 
@@ -79,19 +81,45 @@ const assign = async (req, res) => {
     return failure(res, { statusCode: 422, message: 'Jadwal piket hanya berlaku untuk hari Sabtu.' });
   }
 
-  const created = [];
-  for (const userId of userIds) {
-    const [row] = await PiketSchedule.findOrCreate({
-      where: { user_id: userId, tanggal },
-      defaults: { assigned_by: req.user.id },
+  // Validasi bentuk UUID lebih dulu supaya id sampah tidak berujung error 500
+  // dari Postgres ("invalid input syntax for type uuid"), dan buang duplikat.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uniqueUserIds = [...new Set(userIds)];
+  const invalidIds = uniqueUserIds.filter(
+    (id) => typeof id !== 'string' || !UUID_RE.test(id)
+  );
+  if (invalidIds.length > 0) {
+    return failure(res, {
+      statusCode: 422,
+      message: 'Daftar userIds berisi ID yang tidak valid.',
+      errors: invalidIds.map((id) => ({
+        field: 'userIds',
+        message: `ID tidak valid: ${String(id)}`,
+      })),
     });
-    created.push(row);
   }
+
+  // Dulu findOrCreate dipanggil di dalam loop → N+1 query (1 SELECT + 1 INSERT
+  // per pegawai). Sekarang satu INSERT ... ON CONFLICT DO NOTHING (aman karena
+  // ada unique index (user_id, tanggal)) lalu satu SELECT untuk baris lengkap.
+  await PiketSchedule.bulkCreate(
+    uniqueUserIds.map((userId) => ({
+      user_id: userId,
+      tanggal,
+      assigned_by: req.user.id,
+    })),
+    { ignoreDuplicates: true }
+  );
+
+  const created = await PiketSchedule.findAll({
+    where: { tanggal, user_id: { [Op.in]: uniqueUserIds } },
+    order: [['id', 'ASC']],
+  });
 
   await logActivity(
     req,
     'ASSIGN_PIKET',
-    `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${userIds.length} pegawai`
+    `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${uniqueUserIds.length} pegawai`
   );
 
   return success(res, {

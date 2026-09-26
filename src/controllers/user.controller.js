@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { User } = require('../models');
 const { success, failure } = require('../utils/response');
+const { parsePagination } = require('../utils/pagination');
 const { logActivity } = require('../utils/activityLogger');
 const { USER_STATUS } = require('../utils/constants');
 
@@ -9,7 +10,8 @@ const { USER_STATUS } = require('../utils/constants');
 // Selalu daftar pegawai (tabel users) - akun Admin/Pimpinan ada di
 // admin_accounts, tidak dikelola lewat endpoint ini.
 const getAll = async (req, res) => {
-  const { status, search, page = 1, limit = 20 } = req.query;
+  const { status, search } = req.query;
+  const { page, limit, offset } = parsePagination(req.query);
   const where = {};
   if (status) where.status = status;
   if (search) {
@@ -19,18 +21,17 @@ const getAll = async (req, res) => {
     ];
   }
 
-  const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await User.findAndCountAll({
     where,
     attributes: { exclude: ['password'] },
     order: [['name', 'ASC']],
-    limit: Number(limit),
+    limit,
     offset,
   });
 
   return success(res, {
     data: rows,
-    meta: { total: count, page: Number(page), limit: Number(limit) },
+    meta: { total: count, page, limit },
   });
 };
 

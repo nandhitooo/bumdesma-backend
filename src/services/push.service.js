@@ -1,4 +1,12 @@
-const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
+// firebase-admin v14 memakai API modular lewat subpath export. Di v14
+// admin.apps / admin.credential / admin.messaging pada root SUDAH TIDAK ADA
+// (semuanya undefined) — memakainya membuat push selalu gagal dengan
+// TypeError yang tertelan try/catch di pushToUser, sehingga notif bar
+// tidak pernah muncul tanpa error yang kelihatan.
+const { getApps, initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const { PushToken, User } = require('../models');
 
 /**
@@ -10,23 +18,59 @@ const { PushToken, User } = require('../models');
  * hanya push ke notif bar yang dilewati dengan warning sekali.
  */
 let initWarned = false;
+
+/**
+ * Path file service account dari GOOGLE_APPLICATION_CREDENTIALS.
+ *
+ * Nilai relatif di-resolve terhadap ROOT PROJECT, bukan cwd server, supaya
+ * .env yang sama bisa dipakai di Windows maupun CachyOS. Path absolut seperti
+ * C:\secrets\x.json atau /home/user/x.json tidak portable antar OS, jadi
+ * sebaiknya selalu isi nilai relatif (mis. secrets/firebase-service-account.json).
+ */
+function resolveCredentialPath() {
+  const raw = (process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
+  if (!raw) return null;
+  return path.isAbsolute(raw) ? raw : path.resolve(__dirname, '..', '..', raw);
+}
+
+function warnOnce(message) {
+  if (initWarned) return;
+  initWarned = true;
+  console.warn(message);
+}
+
 function ensureInit() {
-  if (admin.apps.length > 0) return true;
+  if (getApps().length > 0) return true;
   try {
-    // firebase-admin membaca GOOGLE_APPLICATION_CREDENTIALS secara otomatis,
-    // atau fallback ke ADC metadata server saat jalan di GCP.
-    admin.initializeApp();
+    const credentialPath = resolveCredentialPath();
+
+    if (credentialPath) {
+      if (!fs.existsSync(credentialPath)) {
+        warnOnce(
+          '[push] Firebase admin tidak terinisialisasi — push FCM dilewati.' +
+            '\n       File service account tidak ditemukan: ' +
+            credentialPath +
+            '\n       Perbaiki GOOGLE_APPLICATION_CREDENTIALS di .env backend.'
+        );
+        return false;
+      }
+      // Pakai cert eksplisit: tidak bergantung pada cwd server saat start,
+      // dan path relatif di .env otomatis portabel antar OS.
+      initializeApp({ credential: cert(credentialPath) });
+      return true;
+    }
+
+    // Tanpa env var: andalkan Application Default Credentials
+    // (mis. metadata server saat dideploy di Cloud Run/GCP).
+    initializeApp();
     return true;
   } catch (err) {
-    if (!initWarned) {
-      initWarned = true;
-      console.warn(
-        '[push] Firebase admin tidak terinisialisasi — push FCM dilewati.' +
-          '\n       Set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json' +
-          '\n       Error: ' +
-          (err && err.message ? err.message : err)
-      );
-    }
+    warnOnce(
+      '[push] Firebase admin tidak terinisialisasi — push FCM dilewati.' +
+        '\n       Set GOOGLE_APPLICATION_CREDENTIALS di .env backend' +
+        '\n       Error: ' +
+        (err && err.message ? err.message : err)
+    );
     return false;
   }
 }
@@ -83,7 +127,7 @@ async function pushToUser(userId, { title, message, type, notificationId }) {
       },
     };
 
-    const res = await admin.messaging().sendEachForMulticast(messagePayload);
+    const res = await getMessaging().sendEachForMulticast(messagePayload);
 
     // Token invalid/expired -> hapus supaya tabel tidak menumpuk sampah.
     const invalid = res.responses
@@ -99,4 +143,7 @@ async function pushToUser(userId, { title, message, type, notificationId }) {
   }
 }
 
-module.exports = { pushToUser };
+// ensureInit & resolveCredentialPath diekspor untuk keperluan diagnostik
+// (scripts/check-push.js / `npm run push:check`), bukan untuk dipanggil
+// dari alur bisnis biasa.
+module.exports = { pushToUser, ensureInit, resolveCredentialPath };

@@ -2,6 +2,7 @@ const fs = require("fs");
 const { Op } = require("sequelize");
 const { Leave, User, Attendance } = require("../models");
 const { success, failure } = require("../utils/response");
+const { parsePagination } = require("../utils/pagination");
 const { logActivity } = require("../utils/activityLogger");
 const { notifyUser } = require("../utils/notifier");
 const {
@@ -106,7 +107,8 @@ const myLeaves = async (req, res) => {
 // GET /api/leaves?status=&user_id=&search=&page=&limit=
 // Admin melihat semua pengajuan untuk ditinjau; Pimpinan melihat yang sudah diteruskan Admin
 const getAll = async (req, res) => {
-  const { status, user_id, search, page = 1, limit = 20 } = req.query;
+  const { status, user_id, search } = req.query;
+  const { page, limit, offset } = parsePagination(req.query);
   const where = {};
   if (status) where.status = status;
   if (user_id) where.user_id = user_id;
@@ -124,7 +126,6 @@ const getAll = async (req, res) => {
     };
   }
 
-  const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await Leave.findAndCountAll({
     where,
     include: [
@@ -136,14 +137,14 @@ const getAll = async (req, res) => {
       },
     ],
     order: [["created_at", "DESC"]],
-    limit: Number(limit),
+    limit,
     offset,
     distinct: true,
   });
 
   return success(res, {
     data: rows,
-    meta: { total: count, page: Number(page), limit: Number(limit) },
+    meta: { total: count, page, limit },
   });
 };
 

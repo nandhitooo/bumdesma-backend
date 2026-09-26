@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { AdminAccount } = require('../models');
 const { success, failure } = require('../utils/response');
+const { parsePagination } = require('../utils/pagination');
 const { logActivity } = require('../utils/activityLogger');
 const { USER_STATUS } = require('../utils/constants');
 
@@ -11,7 +12,8 @@ const { USER_STATUS } = require('../utils/constants');
 
 // GET /api/admin-accounts?role=&status=&search=&page=&limit=
 const getAll = async (req, res) => {
-  const { role, status, search, page = 1, limit = 20 } = req.query;
+  const { role, status, search } = req.query;
+  const { page, limit, offset } = parsePagination(req.query);
   const where = {};
   if (role) where.role = role;
   if (status) where.status = status;
@@ -22,18 +24,17 @@ const getAll = async (req, res) => {
     ];
   }
 
-  const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await AdminAccount.findAndCountAll({
     where,
     attributes: { exclude: ['password'] },
     order: [['name', 'ASC']],
-    limit: Number(limit),
+    limit,
     offset,
   });
 
   return success(res, {
     data: rows,
-    meta: { total: count, page: Number(page), limit: Number(limit) },
+    meta: { total: count, page, limit },
   });
 };
 
