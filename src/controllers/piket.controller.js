@@ -122,10 +122,44 @@ const assign = async (req, res) => {
     `Admin menetapkan jadwal piket tanggal ${tanggal} untuk ${uniqueUserIds.length} pegawai`
   );
 
+  // Auto-notify pegawai yang BARU ditugaskan (belum notification_sent):
+  // mengikuti skema assign -> konfirmasi -> push ke akun pegawai, admin
+  // tidak perlu lagi menekan tombol "Kirim Notifikasi" satu per satu.
+  // Push gagal tidak pernah menggagalkan request (notifyUser menangani
+  // errornya sendiri); baris lama yang sudah terkirim tidak dikirim ulang.
+  const newlyAssigned = created.filter((row) => !row.notification_sent);
+  if (newlyAssigned.length > 0) {
+    const tanggalFormatted = new Date(`${tanggal}T00:00:00`).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    // Dikerjakan tanpa menahan response; kegagalan individual ditangani di
+    // notifyUser/pushToUser (fire-and-forget sesuai kontrak activityLogger).
+    for (const row of newlyAssigned) {
+      notifyUser({
+        userId: row.user_id,
+        type: NOTIFICATION_TYPE.PIKET,
+        title: 'Jadwal Piket Sabtu',
+        message: `Anda ditugaskan piket pada ${tanggalFormatted}. Mohon hadir sesuai jadwal.`,
+        data: { piketScheduleId: row.id, tanggal: row.tanggal },
+        sentBy: req.user.id,
+      }).then(() => {
+        row.notification_sent = true;
+        return row.save();
+      }).catch((err) => console.error('[piket] Gagal mengirim notifikasi piket:', err && err.message ? err.message : err));
+    }
+  }
+
+  const notifiedCount = newlyAssigned.length;
+
   return success(res, {
     statusCode: 201,
     message:
-      'Jadwal piket berhasil ditetapkan. Tekan "Kirim Notifikasi" untuk memberi tahu pegawai di app mobile.',
+      notifiedCount > 0
+        ? `Jadwal piket berhasil ditetapkan. Notifikasi sedang dikirim ke ${notifiedCount} pegawai baru.`
+        : 'Jadwal piket berhasil ditetapkan. Semua pegawai yang dipilih sudah menerima notifikasi sebelumnya.',
     data: created,
   });
 };

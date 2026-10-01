@@ -97,10 +97,43 @@ const scan = async (req, res) => {
     });
   }
 
+  const dateOnlyStr = todayDateOnly();
+
+  // Semua input validasi dibaca paralel karena saling independen (token QR,
+  // settings, izin/cuti, jadwal, catatan absensi hari ini). Urutan
+  // pemeriksaan Layer 2-4 di bawah tetap sama; hanya fetch datanya yang
+  // diparalelkan agar latensi scan tidak menjumlahkan round-trip DB satu
+  // per satu.
+  const [qrCode, settings, approvedLeave, scheduleResult, attendance] =
+    await Promise.all([
+      // Layer 2: token QR Code statis
+      QrCode.findOne({ where: { token, is_active: true } }),
+      // Layer 3: geofencing (settingsHelper sudah menyimpan cache in-memory)
+      getSettingsMap(),
+      // Pegawai sedang izin/cuti disetujui pada tanggal ini
+      Leave.findOne({
+        where: {
+          user_id: userId,
+          status: LEAVE_STATUS.APPROVED,
+          tanggal_mulai: { [Op.lte]: dateOnlyStr },
+          tanggal_selesai: { [Op.gte]: dateOnlyStr },
+        },
+      }),
+      // Layer 4: jadwal kerja & hak akses hari ini (termasuk piket Sabtu)
+      resolveScheduleForUser(userId, dateOnlyStr),
+      // Catatan absensi pegawai pada tanggal ini
+      Attendance.findOne({
+        where: { user_id: userId, tanggal: dateOnlyStr },
+      }),
+    ]);
+  const { schedule, allowed, reason } = scheduleResult;
+
+  // logActivity dipanggil fire-and-forget (kontrak activityLogger.js):
+  // pencatatan audit tidak boleh menambah latensi response.
+
   // Layer 2: Verifikasi token QR Code statis
-  const qrCode = await QrCode.findOne({ where: { token, is_active: true } });
   if (!qrCode) {
-    await logActivity(
+    logActivity(
       req,
       "SCAN_REJECTED",
       "Token QR Code tidak valid/tidak aktif",
@@ -112,7 +145,6 @@ const scan = async (req, res) => {
   }
 
   // Layer 3: Geofencing
-  const settings = await getSettingsMap();
   const officeLat = Number(settings.office_latitude);
   const officeLon = Number(settings.office_longitude);
   const radius = Number(settings.geofence_radius_meters) || 50;
@@ -126,7 +158,7 @@ const scan = async (req, res) => {
   );
 
   if (!isWithinRadius) {
-    await logActivity(
+    logActivity(
       req,
       "SCAN_REJECTED",
       `Geofencing gagal, jarak ${distance}m dari kantor (radius ${radius}m)`,
@@ -137,8 +169,6 @@ const scan = async (req, res) => {
       errors: { distance, radius },
     });
   }
-
-  const dateOnlyStr = todayDateOnly();
 
   // Hari libur nasional / cuti bersama -> tutup akses scanning. Mendukung
   // entri rentang tanggal (libur panjang) sekaligus format lama (tanggal
@@ -161,14 +191,6 @@ const scan = async (req, res) => {
   }
 
   // Pegawai sedang izin/cuti disetujui pada tanggal ini -> tutup akses scan
-  const approvedLeave = await Leave.findOne({
-    where: {
-      user_id: userId,
-      status: LEAVE_STATUS.APPROVED,
-      tanggal_mulai: { [Op.lte]: dateOnlyStr },
-      tanggal_selesai: { [Op.gte]: dateOnlyStr },
-    },
-  });
   if (approvedLeave) {
     return failure(res, {
       statusCode: 400,
@@ -178,10 +200,6 @@ const scan = async (req, res) => {
   }
 
   // Layer 4: Jadwal kerja & hak akses hari ini (termasuk validasi piket Sabtu)
-  const { schedule, allowed, reason } = await resolveScheduleForUser(
-    userId,
-    dateOnlyStr,
-  );
   if (!allowed) {
     const message =
       reason === "not_scheduled_piket"
@@ -190,9 +208,6 @@ const scan = async (req, res) => {
     return failure(res, { statusCode: 400, message });
   }
 
-  let attendance = await Attendance.findOne({
-    where: { user_id: userId, tanggal: dateOnlyStr },
-  });
   const now = new Date();
 
   // === ABSEN MASUK ===
@@ -228,11 +243,11 @@ const scan = async (req, res) => {
       distance_in_meters: distance,
     };
 
-    attendance = attendance
+    const saved = attendance
       ? await attendance.update(payload)
       : await Attendance.create(payload);
 
-    await logActivity(
+    logActivity(
       req,
       "SCAN_ABSEN_MASUK",
       `Absen masuk tercatat, status: ${status}`,
@@ -244,7 +259,7 @@ const scan = async (req, res) => {
         status === ATTENDANCE_STATUS.TERLAMBAT
           ? `Absen masuk berhasil, namun Anda tercatat TERLAMBAT ${lateMinutes} menit.`
           : "Absen masuk berhasil. Selamat bekerja!",
-      data: { attendance, jenis: "masuk" },
+      data: { attendance: saved, jenis: "masuk" },
     });
   }
 
@@ -277,7 +292,7 @@ const scan = async (req, res) => {
     distance_out_meters: distance,
   });
 
-  await logActivity(
+  logActivity(
     req,
     "SCAN_ABSEN_PULANG",
     `Absen pulang tercatat, status: ${checkoutStatus}${
