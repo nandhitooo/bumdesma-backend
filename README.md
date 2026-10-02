@@ -57,6 +57,7 @@ bumdesma-backend/
 │   ├── routes/                  # Definisi endpoint per modul
 │   ├── middlewares/             # Auth, error handler, upload, validasi
 │   └── utils/                   # JWT, geofencing, notifier, response, dsb
+├── docs/                       # Dokumentasi per modul (lihat docs/piket.md)
 └── uploads/
     ├── qrcode/                  # Gambar QR Code hasil generate
     └── surat-izin/               # Lampiran surat izin/cuti pegawai
@@ -72,8 +73,12 @@ bumdesma-backend/
 - **qr_codes** — token QR Code statis (hanya satu token aktif pada satu waktu)
 - **attendances** — riwayat presensi harian (1 baris per pegawai per tanggal)
 - **leaves** — pengajuan izin/cuti (alur: pending → diteruskan Admin → approved/rejected Pimpinan)
-- **piket_schedules** — penugasan piket Sabtu per pegawai, `notification_sent`
-  jadi `true` hanya setelah Admin menekan tombol "Kirim Notifikasi"
+- **piket_schedules** — penugasan piket Sabtu per pegawai; `notification_sent`
+  menjadi `true` otomatis setelah notifikasi terkirim (saat assign atau saat
+  tukar jadwal disetujui)
+- **piket_swaps** — permintaan tukar jadwal piket (ganti orang di tanggal yang
+  sama), alur admin-mediated: `menunggu_pengganti` → `menunggu_admin` →
+  `approved`/`rejected`
 - **notifications** — notifikasi in-app untuk pegawai (jadwal piket,
   keputusan izin/cuti), ditampilkan di lonceng Dashboard app mobile
 - **system_settings** — parameter sistem (koordinat kantor, radius geofencing, hari libur)
@@ -173,8 +178,18 @@ Seluruh endpoint (kecuali login) memerlukan header `Authorization: Bearer <acces
 | GET | `/` | Admin, Pimpinan |
 | GET | `/me` | Pegawai |
 | POST | `/` (body: tanggal, userIds[]) | Admin |
-| POST | `/:id/notify` | Admin — kirim notifikasi in-app ke pegawai bersangkutan |
 | DELETE | `/:id` | Admin |
+
+### Tukar Jadwal Piket (`/api/piket/swaps`)
+| Method | Endpoint | Akses |
+|---|---|---|
+| GET | `/swaps` (query: status, start, end) | Admin, Pimpinan |
+| POST | `/:id/swap` (body: replacementUserId) | Admin — catat permintaan tukar |
+| PUT | `/swaps/:swapId/agree` | Admin — catat kesediaan pengganti |
+| PUT | `/swaps/:swapId/decision` (body: decision, catatan) | Admin — keputusan akhir |
+| DELETE | `/swaps/:swapId` | Admin — batalkan permintaan berjalan |
+
+> Detail alur, state machine, dan aturan validasi: **[docs/piket.md](docs/piket.md)**.
 
 ### Notifikasi (`/api/notifications`) — pegawai (notifikasi milik sendiri)
 | Method | Endpoint |
@@ -220,12 +235,23 @@ Admin) → `approved`/`rejected` (keputusan Pimpinan). Saat disetujui, sistem
 otomatis mengisi rekap harian berstatus **Izin/Cuti** pada rentang tanggal
 terkait sehingga akses scan ditutup untuk tanggal tersebut.
 
-**Notifikasi Piket**: Admin assign piket lewat `POST /api/piket` (belum
-mengirim notifikasi apapun) → Admin menekan tombol konfirmasi "Kirim
-Notifikasi" di Website, yang memanggil `POST /api/piket/:id/notify` → baris
-baru dibuat di `notifications` dan `piket_schedules.notification_sent`
-menjadi `true` → app mobile pegawai menampilkan badge merah di lonceng
-Dashboard saat polling `GET /api/notifications/unread-count`.
+**Penugasan Piket**: Admin menambah pegawai lewat modal Assign (baris pending
+muncul di list utama) → Admin menekan tombol **Konfirmasi Piket** di atas
+pagination → `POST /api/piket` mengirim seluruh `userIds` sekaligus → backend
+**otomatis** membuat baris di `notifications` dan menandai
+`piket_schedules.notification_sent = true` untuk pegawai yang baru ditugaskan
+→ app mobile menampilkan badge merah di lonceng Dashboard saat polling
+`GET /api/notifications/unread-count`. Tidak ada lagi tombol "Kirim
+Notifikasi" manual (endpoint `POST /api/piket/:id/notify` dipertahankan hanya
+untuk kompatibilitas).
+
+**Tukar Jadwal Piket**: pegawai minta digantikan secara lisan ke Admin →
+Admin mencatat permintaan (`POST /api/piket/:id/swap`, status
+`menunggu_pengganti`) → Admin mencatat kesediaan pengganti
+(`PUT /api/piket/swaps/:swapId/agree`, status `menunggu_admin`) → Admin
+memberi keputusan (`PUT /api/piket/swaps/:swapId/decision`). Jika disetujui,
+jadwal berpindah ke pegawai pengganti dan notifikasi otomatis dikirim ke
+kedua pegawai. Tidak ada pengajuan dari app mobile. Detail: **[docs/piket.md](docs/piket.md)**.
 
 **QR Code statis**: hanya satu token aktif pada satu waktu; generate/regenerasi
 otomatis menonaktifkan token sebelumnya dan menghasilkan gambar PNG baru.

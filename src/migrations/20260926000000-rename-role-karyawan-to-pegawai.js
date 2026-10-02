@@ -20,6 +20,23 @@
 
 const ROLE_ENUM_TYPE = "enum_activity_logs_actor_type";
 
+// Cek apakah sebuah label sudah ada di dalam tipe ENUM PostgreSQL. Dipakai
+// supaya RENAME VALUE tidak dijalankan dua kali (label lama sudah hilang) -
+// tanpa ini, menjalankan ulang migrasi pada database yang sudah dikonversi
+// gagal dengan '"karyawan" is not an existing enum label'.
+async function enumLabelExists(sequelize, typeName, label) {
+  const rows = await sequelize.query(
+    `SELECT 1
+       FROM pg_enum e
+       JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = :typeName
+        AND e.enumlabel = :label
+      LIMIT 1;`,
+    { replacements: { typeName, label } },
+  );
+  return Array.isArray(rows) && rows[0].length > 0;
+}
+
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     const sequelize = queryInterface.sequelize;
@@ -52,9 +69,17 @@ module.exports = {
         // RENAME VALUE otomatis mengubah label pada semua baris yang memakai
         // nilai lama - TIDAK boleh UPDATE dulu: 'pegawai' belum valid sebelum
         // label ENUM-nya ada (migration pertama gagal persis karena ini).
-        await sequelize.query(
-          `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'karyawan' TO 'pegawai';`,
+        // Lewati kalau label 'karyawan' sudah tidak ada (sudah dikonversi).
+        const needsRename = await enumLabelExists(
+          sequelize,
+          ROLE_ENUM_TYPE,
+          "karyawan",
         );
+        if (needsRename) {
+          await sequelize.query(
+            `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'karyawan' TO 'pegawai';`,
+          );
+        }
       } else {
         // Kolom ada tetapi bukan ENUM (varchar, dibuat manual): konversi data
         // dulu di domain varchar, baru ubah tipe kolomnya ke ENUM.
@@ -111,9 +136,16 @@ module.exports = {
     // ---- activity_logs.actor_type: kembalikan ENUM (data ikut ter-relabel) ----
     const logsTable = await queryInterface.describeTable("activity_logs");
     if (logsTable.actor_type) {
-      await sequelize.query(
-        `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'pegawai' TO 'karyawan';`,
+      const needsRename = await enumLabelExists(
+        sequelize,
+        ROLE_ENUM_TYPE,
+        "pegawai",
       );
+      if (needsRename) {
+        await sequelize.query(
+          `ALTER TYPE "${ROLE_ENUM_TYPE}" RENAME VALUE 'pegawai' TO 'karyawan';`,
+        );
+      }
     }
   },
 };
